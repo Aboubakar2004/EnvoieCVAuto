@@ -1,0 +1,34 @@
+{# Boutons d'action d'une offre + confirmation "J'ai postulé". #}
+{% macro actions(o, retour=None) %}
+<div class="ligne actions">
+  {% if o.statut == "envoyee" %}
+    <span class="badge vert">✔ Postulé le {{ o.date_candidature[:10] if o.date_candidature else "?" }}</span>
+    {% if o.preuve %}<span class="discret">Preuve : {{ o.preuve }}</span>{% endif %}
+  {% else %}
+    {% if o.url_postulation or o.url_offre %}
+      <a class="bouton postuler" data-id="{{ o.id }}" href="{{ o.url_postulation or o.url_offre }}"
+         target="_blank" rel="noopener">Postuler ↗</a>
+    {% endif %}
+    <button type="button" class="secondaire postuler" data-id="{{ o.id }}">J'ai postulé</button>
+    {% if o.statut != "a_postuler" %}
+    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
+      <input type="hidden" name="statut" value="a_postuler"><button class="secondaire">Plus tard</button></form>
+    {% endif %}
+    {% if o.statut != "ignoree" %}
+    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
+      <input type="hidden" name="statut" value="ignoree"><button class="secondaire">Ignorer</button></form>
+    {% endif %}
+  {% endif %}
+</div>
+{% if o.statut != "envoyee" %}
+<form method="post" action="{{ url_for('postule', offre_id=o.id) }}" class="confirmation" id="confirm-{{ o.id }}" hidden>
+  <strong>Tu as terminé ta candidature sur le site ?</strong>
+  <input name="preuve" placeholder="Facultatif : n° de candidature, « email de confirmation reçu »…">
+  {% if retour %}<input type="hidden" name="retour" value="{{ retour }}">{% endif %}
+  <div class="ligne">
+    <button>Oui, j'ai postulé</button>
+    <button type="button" class="secondaire" onclick="this.form.hidden = true">Pas encore</button>
+  </div>
+</form>
+{% endif %}
+{% endmacro %}

@@ -39,6 +39,10 @@ class SourceErreur(Exception):
     """Erreur d'une source d'offres (message lisible pour l'utilisateur)."""
 
 
+class SourceIndisponible(SourceErreur):
+    """Panne passagère du site (erreur 5xx, réseau) : on pourra réessayer plus tard."""
+
+
 def extraire_email(*textes: str | None) -> str | None:
     for t in textes:
         if t:

@@ -11,7 +11,7 @@ import unicodedata
 import requests
 
 from .. import config
-from .commun import TIMEOUT, SourceErreur, extraire_email
+from .commun import TIMEOUT, SourceErreur, SourceIndisponible, extraire_email
 
 NOM = "France Travail"
 URL_TOKEN = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
@@ -120,7 +120,7 @@ def rechercher(mot_cle: str, departement: str | None = None, commune: str | None
                 headers={"Authorization": f"Bearer {_get_token()}", "Accept": "application/json"},
             )
         except requests.RequestException as e:
-            raise SourceErreur(f"Impossible de contacter France Travail : {e}") from e
+            raise SourceIndisponible(f"Impossible de contacter France Travail : {e}") from e
         if r.status_code == 401:  # jeton expiré : on en redemande un
             _token["valeur"] = None
         elif r.status_code == 429:  # quota (4 appels/s) dépassé : attendre le délai demandé
@@ -131,5 +131,7 @@ def rechercher(mot_cle: str, departement: str | None = None, commune: str | None
     if r.status_code == 204:  # aucune offre
         return []
     if r.status_code not in (200, 206):
+        if r.status_code >= 500:
+            raise SourceIndisponible(f"France Travail est momentanément indisponible ({r.status_code}).")
         raise SourceErreur(f"Erreur France Travail ({r.status_code}) : {r.text[:300]}")
     return [normaliser_offre(o, mot_cle) for o in r.json().get("resultats", [])]

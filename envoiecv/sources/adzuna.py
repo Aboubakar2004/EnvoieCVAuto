@@ -9,7 +9,7 @@ import time
 import requests
 
 from .. import config
-from .commun import TIMEOUT, SourceErreur, extraire_email
+from .commun import TIMEOUT, SourceErreur, SourceIndisponible, extraire_email
 
 NOM = "Adzuna"
 URL_SEARCH = "https://api.adzuna.com/v1/api/jobs/fr/search/1"
@@ -82,20 +82,26 @@ def rechercher(mot_cle: str, lieu: str | None = None, distance: int | None = Non
         if distance:
             params["distance"] = distance
 
-    for _ in range(2):
+    r = None
+    for attente in (2, 5, 0):  # 3 tentatives en cas de panne passagère
         try:
             r = requests.get(URL_SEARCH, params=params, timeout=TIMEOUT)
-        except requests.RequestException as e:
-            raise SourceErreur(f"Impossible de contacter Adzuna : {e}") from e
-        if r.status_code == 429:  # trop d'appels : on patiente un peu
+        except requests.RequestException:
+            r = None
+        if r is not None and r.status_code == 429:  # trop d'appels : on patiente
             time.sleep(min(int(r.headers.get("Retry-After", "5") or 5), 20))
-            continue
-        break
+        elif r is None or r.status_code >= 500:  # serveur Adzuna en panne
+            time.sleep(attente)
+        else:
+            break
 
+    if r is None or r.status_code >= 500:
+        code = f" ({r.status_code})" if r is not None else ""
+        raise SourceIndisponible(f"Adzuna est momentanément indisponible{code}.")
     if r.status_code in (401, 403):
         raise SourceErreur(f"Clés Adzuna refusées ({r.status_code}). Vérifie ADZUNA_APP_ID et ADZUNA_APP_KEY.")
     if r.status_code == 429:
         raise SourceErreur("Limite d'appels Adzuna atteinte (250 par jour). Réessaie plus tard.")
     if r.status_code != 200:
-        raise SourceErreur(f"Erreur Adzuna ({r.status_code}) : {r.text[:300]}")
+        raise SourceErreur(f"Erreur Adzuna ({r.status_code}).")
     return [normaliser_offre(o, mot_cle) for o in r.json().get("results", [])]

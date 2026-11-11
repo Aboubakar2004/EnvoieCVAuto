@@ -1,11 +1,15 @@
 {% extends "base.html" %}
+{% from "_offre_actions.html" import actions %}
+{% block entete %}{% if recherche_en_cours %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block contenu %}
 <h1>Offres pour {{ profil.prenom or "toi" }}</h1>
 
 <section class="carte">
   <div class="offre-entete">
     <div>
-      {% if derniere %}
+      {% if recherche_en_cours %}
+        <p class="ok">⏳ Recherche des offres en cours… la page se met à jour toute seule.</p>
+      {% elif derniere %}
         <p class="discret">Dernière recherche automatique : {{ derniere.date.replace("T", " à ")[:-3] }}
           — {{ derniere.trouvees }} offre(s), dont {{ derniere.nouvelles }} nouvelle(s).
           {% if prochaine %}Prochaine vers {{ prochaine.strftime("%H:%M") }}.{% endif %}</p>
@@ -17,9 +21,11 @@
         {% if profil.ville %} · autour de {{ profil.ville }} ({{ profil.rayon_km }} km){% endif %}</p>
       {% else %}<p class="attention">Indique tes « postes recherchés » dans <a href="{{ url_for('profil') }}">Mon CV</a>.</p>{% endif %}
     </div>
+    {% if not recherche_en_cours %}
     <form method="post" action="{{ url_for('lancer_recherche_auto') }}">
       <button>Actualiser maintenant</button>
     </form>
+    {% endif %}
   </div>
 </section>
 
@@ -34,13 +40,7 @@
     {% if o.type_contrat %} · {{ o.type_contrat }}{% endif %}
     {% if o.duree_travail %} · {{ o.duree_travail }}{% endif %} · publiée le {{ o.date_creation }}
   </div>
-  <div class="ligne actions">
-    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
-      <input type="hidden" name="statut" value="a_postuler"><button>À postuler</button></form>
-    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
-      <input type="hidden" name="statut" value="ignoree"><button class="secondaire">Ignorer</button></form>
-    <a href="{{ o.url_offre }}" target="_blank" rel="noopener">Voir l'offre ↗</a>
-  </div>
+  {{ actions(o) }}
 </article>
 {% else %}
 <p class="discret">Aucune nouvelle offre pour l'instant. Clique sur « Actualiser maintenant » ou reviens plus tard.</p>
@@ -54,8 +54,11 @@
   </div>
   <div class="carte">
     <h2>Suivi</h2>
-    <p>{{ compteurs.get("a_postuler", 0) }} à postuler · {{ compteurs.get("envoyee", 0) }} envoyée(s)</p>
-    <a class="bouton secondaire" href="{{ url_for('offres') }}">Toutes les offres</a>
+    <p>{{ compteurs.get("a_postuler", 0) }} gardée(s) pour plus tard · {{ compteurs.get("envoyee", 0) }} candidature(s)</p>
+    <div class="ligne">
+      <a class="bouton secondaire" href="{{ url_for('candidatures') }}">Mes candidatures</a>
+      <a class="bouton secondaire" href="{{ url_for('offres', statut='a_postuler') }}">Plus tard</a>
+    </div>
   </div>
   <div class="carte">
     <h2>Configuration</h2>

@@ -8,6 +8,7 @@ from . import db
 from .pertinence import score_offre
 from .profil import charger_profil
 from .sources import SourceErreur, adzuna, france_travail, sources_actives
+from .sources.commun import SourceIndisponible
 from .sources.commun import chercher_commune, chercher_departement, extraire_email
 
 RE_DEPARTEMENT = re.compile(r"^(\d{2,3}|2[AaBb])$")
@@ -66,10 +67,19 @@ def lancer_recherche(r: dict, publiee_depuis: int = 31) -> tuple[int, int, list[
     offres: dict[str, dict] = {}
     erreurs = []
     for source in sources:
+        pannes = 0
         for mc in r["mots_cles"].splitlines():
             try:
                 for o in _chercher(source, mc, r, contrats, publiee_depuis):
                     offres.setdefault(o["id"], o)
+                pannes = 0
+            except SourceIndisponible as e:
+                # panne passagère : on continue avec les autres mots-clés,
+                # sauf si le site semble complètement en panne
+                pannes += 1
+                if pannes >= 3:
+                    erreurs.append(f"{source.NOM} : {e} Nouvel essai automatique dans 15 minutes.")
+                    break
             except SourceErreur as e:
                 erreurs.append(f"{source.NOM} : {e}")
                 break  # erreur de clé ou de quota : inutile d'insister sur cette source

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_offre_actions.html" import actions %}
 {% block titre %}Offres - EnvoieCVAuto{% endblock %}
 {% block contenu %}
 <h1>Offres d'emploi</h1>
@@ -111,17 +112,7 @@
     {{ o.entreprise or "Entreprise non précisée" }} · {{ o.lieu or "" }} · {{ o.type_contrat or "" }}
     {% if o.duree_travail %} · {{ o.duree_travail }}{% endif %} · publiée le {{ o.date_creation }}
   </div>
-  <div class="ligne actions">
-    {% if statut != "a_postuler" %}
-    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
-      <input type="hidden" name="statut" value="a_postuler"><button>À postuler</button></form>
-    {% endif %}
-    {% if statut != "ignoree" %}
-    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
-      <input type="hidden" name="statut" value="ignoree"><button class="secondaire">Ignorer</button></form>
-    {% endif %}
-    <a href="{{ o.url_offre }}" target="_blank" rel="noopener">Voir l'offre originale ↗</a>
-  </div>
+  {{ actions(o) }}
 </article>
 {% else %}
 <p class="discret">Aucune offre dans cette liste.</p>
