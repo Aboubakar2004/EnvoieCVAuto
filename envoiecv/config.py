@@ -13,6 +13,7 @@ DATA_DIR.mkdir(exist_ok=True)
 PROFIL_FILE = DATA_DIR / "profil.json"
 CV_ORIGINAL_FILE = DATA_DIR / "cv_original.pdf"
 CV_GENERE_FILE = DATA_DIR / "cv_genere.pdf"
+DB_FILE = DATA_DIR / "envoiecv.db"
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-a-changer")
 

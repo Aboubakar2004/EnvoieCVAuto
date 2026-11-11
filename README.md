@@ -7,7 +7,8 @@ adapter le CV à chaque offre et envoyer les candidatures par email.
 ## Fonctionnalités
 
 - [x] **Mon CV** : import du CV PDF + saisie du profil + génération d'un CV PDF propre
-- [ ] Recherche d'offres (API France Travail)
+- [x] **Recherche d'offres** : API France Travail (métiers prédéfinis, ville + rayon ou département,
+      type de contrat), recherches enregistrées, tri par statut, ajout manuel d'offres
 - [ ] Adaptation du CV à l'offre
 - [ ] Envoi automatique des candidatures via Gmail
 
@@ -21,6 +22,15 @@ copy .env.example .env      # puis remplir .env
 ```
 
 Ouvrir ensuite http://127.0.0.1:5000
+
+## Obtenir les clés France Travail (gratuit)
+
+1. Créer un compte sur https://francetravail.io
+2. Aller dans « Mes applications » puis créer une application
+3. Abonner l'application à l'API **« Offres d'emploi v2 »**
+4. Copier l'identifiant client et la clé secrète dans `.env` :
+   `FRANCE_TRAVAIL_CLIENT_ID=...` et `FRANCE_TRAVAIL_CLIENT_SECRET=...`
+5. Relancer l'application
 
 ## Données personnelles
 

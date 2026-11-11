@@ -2,12 +2,14 @@
 
 Lancer :  .venv\\Scripts\\python app.py   puis ouvrir http://127.0.0.1:5000
 """
-from flask import Flask, flash, redirect, render_template, request, send_file, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for
 from pypdf import PdfReader
 
-from envoiecv import config
+from envoiecv import config, db, france_travail
 from envoiecv.cv_pdf import generer_cv_pdf
 from envoiecv.profil import blocs_en_texte, charger_profil, profil_depuis_formulaire, sauver_profil
+from envoiecv.recherche import (FranceTravailErreur, ajouter_offre_manuelle, lancer_recherche,
+                                preparer_recherche)
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -20,6 +22,7 @@ def accueil():
     return render_template(
         "index.html",
         profil=profil,
+        compteurs=db.compter_par_statut(),
         cv_original=config.CV_ORIGINAL_FILE.exists(),
         gmail_ok=bool(config.GMAIL_ADDRESS and config.GMAIL_APP_PASSWORD),
         france_travail_ok=bool(config.FRANCE_TRAVAIL_CLIENT_ID and config.FRANCE_TRAVAIL_CLIENT_SECRET),
@@ -87,6 +90,100 @@ def voir_cv_original():
 def voir_cv_genere():
     generer_cv_pdf(charger_profil(), config.CV_GENERE_FILE)
     return send_file(config.CV_GENERE_FILE, mimetype="application/pdf")
+
+
+# ---------------------------------------------------------------- Offres
+
+def _afficher_resultat(trouvees: int, nouvelles: int, erreurs: list[str]) -> None:
+    for e in erreurs:
+        flash(e, "erreur")
+    if trouvees or not erreurs:
+        flash(f"{trouvees} offre(s) trouvée(s), dont {nouvelles} nouvelle(s).", "ok")
+
+
+@app.route("/offres")
+def offres():
+    statut = request.args.get("statut", "nouvelle")
+    if statut not in db.STATUTS and statut != "toutes":
+        statut = "nouvelle"
+    avec_email = request.args.get("email") == "1"
+    return render_template(
+        "offres.html",
+        offres=db.lister_offres(None if statut == "toutes" else statut, avec_email),
+        statut=statut,
+        avec_email=avec_email,
+        statuts=db.STATUTS,
+        compteurs=db.compter_par_statut(),
+        recherches=db.lister_recherches(),
+        categories=france_travail.CATEGORIES,
+        types_contrat=france_travail.TYPES_CONTRAT,
+        france_travail_ok=france_travail.est_configure(),
+    )
+
+
+@app.route("/offres/recherche", methods=["POST"])
+def rechercher_offres():
+    f = request.form
+    mots = f.getlist("metiers") + f.get("autres_mots", "").replace(",", "\n").splitlines()
+    try:
+        r = preparer_recherche(mots, f.get("lieu", ""), f.get("distance"), f.getlist("contrats"))
+        if f.get("enregistrer"):
+            db.ajouter_recherche(r)
+            flash("Recherche enregistrée : elle pourra être relancée automatiquement.", "ok")
+        _afficher_resultat(*lancer_recherche(r, int(f.get("publiee_depuis", 31))))
+    except (ValueError, FranceTravailErreur) as e:
+        flash(str(e), "erreur")
+    return redirect(url_for("offres"))
+
+
+@app.route("/recherches/<int:rid>/lancer", methods=["POST"])
+def relancer_recherche(rid):
+    r = db.get_recherche(rid) or abort(404)
+    try:
+        _afficher_resultat(*lancer_recherche(r))
+    except FranceTravailErreur as e:
+        flash(str(e), "erreur")
+    return redirect(url_for("offres"))
+
+
+@app.route("/recherches/<int:rid>/supprimer", methods=["POST"])
+def supprimer_recherche(rid):
+    db.supprimer_recherche(rid)
+    flash("Recherche supprimée.", "ok")
+    return redirect(url_for("offres"))
+
+
+@app.route("/offres/ajout", methods=["POST"])
+def ajouter_offre():
+    try:
+        oid = ajouter_offre_manuelle(request.form)
+    except ValueError as e:
+        flash(str(e), "erreur")
+        return redirect(url_for("offres"))
+    flash("Offre ajoutée.", "ok")
+    return redirect(url_for("detail_offre", offre_id=oid))
+
+
+@app.route("/offres/<offre_id>")
+def detail_offre(offre_id):
+    o = db.get_offre(offre_id) or abort(404)
+    return render_template("offre.html", o=o, statuts=db.STATUTS)
+
+
+@app.route("/offres/<offre_id>/statut", methods=["POST"])
+def statut_offre(offre_id):
+    db.changer_statut(offre_id, request.form["statut"])
+    retour = request.form.get("retour")
+    if retour == "detail":
+        return redirect(url_for("detail_offre", offre_id=offre_id))
+    return redirect(request.referrer or url_for("offres"))
+
+
+@app.route("/offres/<offre_id>/supprimer", methods=["POST"])
+def supprimer_offre(offre_id):
+    db.supprimer_offre(offre_id)
+    flash("Offre supprimée.", "ok")
+    return redirect(url_for("offres"))
 
 
 if __name__ == "__main__":
