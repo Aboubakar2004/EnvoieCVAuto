@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titre %}{{ o.intitule }} - EnvoieCVAuto{% endblock %}
+{% block contenu %}
+<p><a href="{{ url_for('offres') }}">← Retour aux offres</a></p>
+<h1>{{ o.intitule }}</h1>
+
+<section class="carte">
+  <p><strong>{{ o.entreprise or "Entreprise non précisée" }}</strong> · {{ o.lieu or "" }}</p>
+  <p class="discret">
+    {{ o.type_contrat or "" }}{% if o.duree_travail %} · {{ o.duree_travail }}{% endif %}
+    {% if o.salaire %} · {{ o.salaire }}{% endif %} · publiée le {{ o.date_creation }}
+    · source : {{ {"france_travail": "France Travail", "adzuna": "Adzuna"}.get(o.source, "ajout manuel") }}
+  </p>
+  <p>
+    {% if o.email_contact %}<span class="badge vert">✉ {{ o.email_contact }}</span>
+      <span class="discret">→ la candidature pourra être envoyée automatiquement.</span>
+    {% else %}<span class="badge">Pas d'email</span>
+      <span class="discret">→ il faudra postuler via le lien.</span>{% endif %}
+  </p>
+  <div class="ligne">
+    {% if o.url_postulation %}<a class="bouton secondaire" href="{{ o.url_postulation }}" target="_blank" rel="noopener">Postuler sur le site ↗</a>{% endif %}
+    {% if o.url_offre and o.url_offre != o.url_postulation %}<a class="bouton secondaire" href="{{ o.url_offre }}" target="_blank" rel="noopener">Offre originale ↗</a>{% endif %}
+  </div>
+</section>
+
+<section class="carte">
+  <h2>Statut</h2>
+  <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}" class="ligne">
+    <input type="hidden" name="retour" value="detail">
+    <select name="statut">
+      {% for code, nom in statuts.items() %}<option value="{{ code }}" {{ "selected" if o.statut == code }}>{{ nom }}</option>{% endfor %}
+    </select>
+    <button>Changer</button>
+  </form>
+</section>
+
+{% if o.competences %}
+<section class="carte">
+  <h2>Compétences demandées</h2>
+  <ul>{% for c in o.competences %}<li>{{ c }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="carte">
+  <h2>Description</h2>
+  <div class="texte-offre">{{ o.description or "Pas de description." }}</div>
+</section>
+
+<form method="post" action="{{ url_for('supprimer_offre', offre_id=o.id) }}"
+      onsubmit="return confirm('Supprimer cette offre ?')">
+  <button class="secondaire">Supprimer l'offre</button>
+</form>
+{% endblock %}

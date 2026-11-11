@@ -42,3 +42,26 @@ button, .bouton {
 .ok { color: var(--vert); }
 .attention { color: var(--orange); }
 .discret { color: var(--gris); font-size: .9rem; }
+select { padding: 8px 10px; border: 1px solid #c9ccd1; border-radius: 6px; font: inherit; display: block; margin-top: 4px; }
+.ligne select { display: inline-block; margin: 0; }
+label.inline { display: inline-block; margin-right: 16px; }
+button.secondaire { background: #fff; color: var(--bleu); border: 1px solid var(--bleu); }
+details > summary { cursor: pointer; list-style: none; }
+details > summary h2 { display: inline; }
+details > summary::before { content: "▸ "; color: var(--bleu); }
+details[open] > summary::before { content: "▾ "; }
+details[open] > summary { margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 8px 6px; border-top: 1px solid #eceef1; vertical-align: middle; }
+td.actions, .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.actions form { margin: 0; }
+.actions button { padding: 6px 12px; font-size: .9rem; }
+.onglets { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.onglets a { padding: 6px 12px; border-radius: 20px; background: #fff; color: var(--bleu); text-decoration: none; border: 1px solid #d5dbe3; }
+.onglets a.actif { background: var(--bleu); color: #fff; border-color: var(--bleu); }
+.offre { margin-bottom: 10px; padding: 14px 18px; }
+.offre-entete { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.offre .actions { margin-top: 8px; }
+.badge { display: inline-block; font-size: .8rem; padding: 2px 8px; border-radius: 10px; background: #eceef1; color: var(--gris); white-space: nowrap; }
+.badge.vert { background: #e6f4ea; color: var(--vert); }
+.texte-offre { white-space: pre-line; line-height: 1.5; }

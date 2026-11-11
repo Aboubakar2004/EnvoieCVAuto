@@ -26,6 +26,7 @@
     <label>Nom <input name="nom" value="{{ p.nom }}"></label>
     <label>Email <input type="email" name="email" value="{{ p.email }}"></label>
     <label>Téléphone <input name="telephone" value="{{ p.telephone }}"></label>
+    <label>Adresse <input name="adresse" value="{{ p.adresse }}" placeholder="3 rue ..., 93110 Rosny-sous-Bois"></label>
     <label>Ville <input name="ville" value="{{ p.ville }}"></label>
     <label>Permis <input name="permis" value="{{ p.permis }}" placeholder="B, véhiculé..."></label>
   </div>
@@ -35,6 +36,23 @@
     <textarea name="accroche" rows="3" placeholder="Sérieux et ponctuel, avec 3 ans d'expérience...">{{ p.accroche }}</textarea>
   </label>
   <label>Disponibilité <input name="disponibilite" value="{{ p.disponibilite }}" placeholder="Immédiate, temps plein ou partiel"></label>
+
+  <fieldset>
+    <legend>Recherche automatique des offres</legend>
+    <label>Postes recherchés <span class="aide">Un par ligne. Les offres sont cherchées automatiquement pour ces postes.</span>
+      <textarea name="postes_recherches" rows="5" placeholder="Agent d'entretien
+Agent de restauration">{{ p.postes_recherches | join('\n') }}</textarea>
+    </label>
+    {% if mots_cles %}<p class="discret">Mots-clés utilisés : {{ mots_cles | join(", ") }}</p>{% endif %}
+    <label>Rayon autour de ma ville (km)
+      <input type="number" name="rayon_km" value="{{ p.rayon_km }}" min="1" max="100">
+    </label>
+    <p class="aide">Contrats souhaités (rien coché = tous) :</p>
+    {% for code, nom in types_contrat.items() %}
+    <label class="radio inline"><input type="checkbox" name="contrats_souhaites" value="{{ code }}"
+      {{ "checked" if code in p.contrats_souhaites }}> {{ nom }}</label>
+    {% endfor %}
+  </fieldset>
 
   <label>Expériences
     <span class="aide">Un bloc par expérience, séparés par une ligne vide.<br>

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block titre %}Offres - EnvoieCVAuto{% endblock %}
+{% block contenu %}
+<h1>Offres d'emploi</h1>
+
+{% if not sources %}
+<div class="flash erreur">
+  Recherche pas encore configurée : remplis <code>ADZUNA_APP_ID</code> et
+  <code>ADZUNA_APP_KEY</code> dans le fichier <code>.env</code>, puis relance l'appli.
+  En attendant, tu peux ajouter des offres à la main (en bas de page).
+</div>
+{% else %}
+<p class="discret">Sources : {{ sources | join(", ") }}.
+  {% if "Adzuna" in sources %}Offres fournies par <a href="https://www.adzuna.fr" target="_blank" rel="noopener">Adzuna</a>.{% endif %}</p>
+{% endif %}
+
+<details class="carte">
+  <summary><h2>Recherche manuelle</h2></summary>
+  <p class="discret">Facultatif : les offres correspondant à ton CV sont déjà cherchées automatiquement.</p>
+  <form method="post" action="{{ url_for('rechercher_offres') }}">
+    <p class="discret">Coche les métiers qui t'intéressent (une recherche est lancée pour chacun).</p>
+    <div class="grille">
+      {% for cat, mots in categories.items() %}
+      <fieldset>
+        <legend>{{ cat }}</legend>
+        {% for m in mots %}
+        <label class="radio"><input type="checkbox" name="metiers" value="{{ m }}"> {{ m }}</label>
+        {% endfor %}
+      </fieldset>
+      {% endfor %}
+    </div>
+    <label>Autres mots-clés <span class="aide">Séparés par des virgules. Ex : agent hospitalier, ASH</span>
+      <input name="autres_mots">
+    </label>
+    <div class="grille">
+      <label>Où ? <span class="aide">Ville, code postal ou numéro de département</span>
+        <input name="lieu" placeholder="Lyon, 69003 ou 69">
+      </label>
+      <label>Rayon autour de la ville (km)
+        <input type="number" name="distance" value="10" min="0" max="100">
+      </label>
+      <label>Publiées depuis
+        <select name="publiee_depuis">
+          <option value="1">1 jour</option><option value="3">3 jours</option>
+          <option value="7">7 jours</option><option value="14">14 jours</option>
+          <option value="31" selected>31 jours</option>
+        </select>
+      </label>
+    </div>
+    <fieldset>
+      <legend>Type de contrat (rien coché = tous)</legend>
+      {% for code, nom in types_contrat.items() %}
+      <label class="radio inline"><input type="checkbox" name="contrats" value="{{ code }}"> {{ nom }}</label>
+      {% endfor %}
+    </fieldset>
+    <label class="radio"><input type="checkbox" name="enregistrer" value="1" checked>
+      Enregistrer cette recherche (pour la relancer automatiquement plus tard)</label>
+    <button type="submit">Rechercher</button>
+  </form>
+</details>
+
+{% if recherches %}
+<section class="carte">
+  <h2>Mes recherches enregistrées</h2>
+  <table>
+    {% for r in recherches %}
+    <tr>
+      <td>{{ r.mots_cles.splitlines() | join(", ") }}</td>
+      <td>{{ r.ville or "Toute la France" }}{% if r.distance %} ({{ r.distance }} km){% endif %}</td>
+      <td>{{ r.contrats or "Tous contrats" }}</td>
+      <td class="actions">
+        <form method="post" action="{{ url_for('relancer_recherche', rid=r.id) }}"><button>Relancer</button></form>
+        <form method="post" action="{{ url_for('supprimer_recherche', rid=r.id) }}"
+              onsubmit="return confirm('Supprimer cette recherche ?')"><button class="secondaire">Supprimer</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endif %}
+
+<nav class="onglets">
+  {% for code, nom in statuts.items() %}
+  <a href="{{ url_for('offres', statut=code, tout=tout|int or None) }}" class="{{ 'actif' if statut == code }}">{{ nom }} ({{ compteurs.get(code, 0) }})</a>
+  {% endfor %}
+  <a href="{{ url_for('offres', statut='toutes', tout=tout|int or None) }}" class="{{ 'actif' if statut == 'toutes' }}">Toutes</a>
+</nav>
+<p class="ligne">
+  {% if tout %}
+    <a href="{{ url_for('offres', statut=statut) }}">Seulement les offres qui correspondent à mon CV</a>
+  {% else %}
+    <a href="{{ url_for('offres', statut=statut, tout=1) }}">Afficher aussi les offres qui ne correspondent pas à mon CV</a>
+  {% endif %}
+  ·
+  {% if avec_email %}
+    <a href="{{ url_for('offres', statut=statut, tout=tout|int or None) }}">Avec ou sans email</a>
+  {% else %}
+    <a href="{{ url_for('offres', statut=statut, email=1, tout=tout|int or None) }}">Seulement avec un email de contact</a>
+  {% endif %}
+</p>
+
+{% for o in offres %}
+<article class="carte offre">
+  <div class="offre-entete">
+    <a href="{{ url_for('detail_offre', offre_id=o.id) }}"><strong>{{ o.intitule }}</strong></a>
+    <span class="badge {{ 'vert' if o.score >= 70 }}" title="Correspondance avec ton CV">{{ o.score }} %</span>
+    {% if o.email_contact %}<span class="badge vert" title="{{ o.email_contact }}">✉ email</span>
+    {% else %}<span class="badge">lien seulement</span>{% endif %}
+  </div>
+  <div class="discret">
+    {{ o.entreprise or "Entreprise non précisée" }} · {{ o.lieu or "" }} · {{ o.type_contrat or "" }}
+    {% if o.duree_travail %} · {{ o.duree_travail }}{% endif %} · publiée le {{ o.date_creation }}
+  </div>
+  <div class="ligne actions">
+    {% if statut != "a_postuler" %}
+    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
+      <input type="hidden" name="statut" value="a_postuler"><button>À postuler</button></form>
+    {% endif %}
+    {% if statut != "ignoree" %}
+    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
+      <input type="hidden" name="statut" value="ignoree"><button class="secondaire">Ignorer</button></form>
+    {% endif %}
+    <a href="{{ o.url_offre }}" target="_blank" rel="noopener">Voir l'offre originale ↗</a>
+  </div>
+</article>
+{% else %}
+<p class="discret">Aucune offre dans cette liste.</p>
+{% endfor %}
+
+<details class="carte">
+  <summary><h2>Ajouter une offre à la main</h2></summary>
+  <p class="discret">Pour une offre vue ailleurs (Indeed, site d'une mairie, affiche...).</p>
+  <form method="post" action="{{ url_for('ajouter_offre') }}">
+    <div class="grille">
+      <label>Intitulé du poste * <input name="intitule" required></label>
+      <label>Entreprise <input name="entreprise"></label>
+      <label>Lieu <input name="lieu"></label>
+      <label>Type de contrat <input name="type_contrat" placeholder="CDI, CDD..."></label>
+      <label>Email pour postuler <input type="email" name="email_contact"></label>
+      <label>Lien de l'offre <input type="url" name="url_offre"></label>
+    </div>
+    <label>Texte de l'offre <textarea name="description" rows="6"></textarea></label>
+    <button type="submit">Ajouter</button>
+  </form>
+</details>
+{% endblock %}

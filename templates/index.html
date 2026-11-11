@@ -1,30 +1,68 @@
 {% extends "base.html" %}
 {% block contenu %}
-<h1>Tableau de bord</h1>
+<h1>Offres pour {{ profil.prenom or "toi" }}</h1>
+
+<section class="carte">
+  <div class="offre-entete">
+    <div>
+      {% if derniere %}
+        <p class="discret">Dernière recherche automatique : {{ derniere.date.replace("T", " à ")[:-3] }}
+          — {{ derniere.trouvees }} offre(s), dont {{ derniere.nouvelles }} nouvelle(s).
+          {% if prochaine %}Prochaine vers {{ prochaine.strftime("%H:%M") }}.{% endif %}</p>
+        {% for e in derniere.erreurs %}<p class="attention">{{ e }}</p>{% endfor %}
+      {% else %}
+        <p class="discret">La recherche automatique démarre avec l'application, puis toutes les 3 heures.</p>
+      {% endif %}
+      {% if mots_cles %}<p class="discret">Postes cherchés : {{ mots_cles | join(", ") }}
+        {% if profil.ville %} · autour de {{ profil.ville }} ({{ profil.rayon_km }} km){% endif %}</p>
+      {% else %}<p class="attention">Indique tes « postes recherchés » dans <a href="{{ url_for('profil') }}">Mon CV</a>.</p>{% endif %}
+    </div>
+    <form method="post" action="{{ url_for('lancer_recherche_auto') }}">
+      <button>Actualiser maintenant</button>
+    </form>
+  </div>
+</section>
+
+{% for o in offres %}
+<article class="carte offre">
+  <div class="offre-entete">
+    <a href="{{ url_for('detail_offre', offre_id=o.id) }}"><strong>{{ o.intitule }}</strong></a>
+    <span class="badge {{ 'vert' if o.score >= 70 }}" title="Correspondance avec ton CV">{{ o.score }} %</span>
+  </div>
+  <div class="discret">
+    {{ o.entreprise or "Entreprise non précisée" }} · {{ o.lieu or "" }}
+    {% if o.type_contrat %} · {{ o.type_contrat }}{% endif %}
+    {% if o.duree_travail %} · {{ o.duree_travail }}{% endif %} · publiée le {{ o.date_creation }}
+  </div>
+  <div class="ligne actions">
+    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
+      <input type="hidden" name="statut" value="a_postuler"><button>À postuler</button></form>
+    <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">
+      <input type="hidden" name="statut" value="ignoree"><button class="secondaire">Ignorer</button></form>
+    <a href="{{ o.url_offre }}" target="_blank" rel="noopener">Voir l'offre ↗</a>
+  </div>
+</article>
+{% else %}
+<p class="discret">Aucune nouvelle offre pour l'instant. Clique sur « Actualiser maintenant » ou reviens plus tard.</p>
+{% endfor %}
 
 <div class="cartes">
   <div class="carte">
-    <h2>1. Mon CV</h2>
-    {% if cv_original or profil.experiences %}
-      <p class="ok">✔ CV {{ "importé" if cv_original else "" }}{{ " et profil rempli" if profil.experiences else "" }}</p>
-    {% else %}
-      <p class="attention">Importe ton CV et remplis ton profil.</p>
-    {% endif %}
-    <a class="bouton" href="{{ url_for('profil') }}">Gérer mon CV</a>
+    <h2>Mon CV</h2>
+    {% if cv_original %}<p class="ok">✔ CV importé</p>{% else %}<p class="attention">Importe ton CV.</p>{% endif %}
+    <a class="bouton secondaire" href="{{ url_for('profil') }}">Gérer mon CV</a>
   </div>
-
   <div class="carte">
-    <h2>2. Recherche d'offres</h2>
-    {% if france_travail_ok %}<p class="ok">✔ API France Travail configurée</p>
-    {% else %}<p class="attention">Clés France Travail à mettre dans le fichier .env</p>{% endif %}
-    <p class="discret">Bientôt disponible.</p>
+    <h2>Suivi</h2>
+    <p>{{ compteurs.get("a_postuler", 0) }} à postuler · {{ compteurs.get("envoyee", 0) }} envoyée(s)</p>
+    <a class="bouton secondaire" href="{{ url_for('offres') }}">Toutes les offres</a>
   </div>
-
   <div class="carte">
-    <h2>3. Envoi automatique</h2>
+    <h2>Configuration</h2>
+    {% if sources %}<p class="ok">✔ Offres : {{ sources | join(", ") }}</p>
+    {% else %}<p class="attention">Clés Adzuna à mettre dans .env</p>{% endif %}
     {% if gmail_ok %}<p class="ok">✔ Gmail configuré</p>
-    {% else %}<p class="attention">Gmail à configurer dans le fichier .env</p>{% endif %}
-    <p class="discret">Bientôt disponible.</p>
+    {% else %}<p class="discret">Gmail : à configurer (étape envoi)</p>{% endif %}
   </div>
 </div>
 {% endblock %}
