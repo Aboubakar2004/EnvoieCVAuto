@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block titre %}Mon CV - EnvoieCVAuto{% endblock %}
+{% block contenu %}
+<h1>Mon CV</h1>
+
+<section class="carte">
+  <h2>CV au format PDF</h2>
+  {% if cv_original %}
+    <p class="ok">✔ Un CV est importé.
+      <a href="{{ url_for('voir_cv_original') }}" target="_blank">Voir</a> ·
+      <a href="{{ url_for('texte_cv') }}" target="_blank">Voir le texte extrait</a>
+    </p>
+  {% endif %}
+  <form method="post" action="{{ url_for('upload_cv') }}" enctype="multipart/form-data" class="ligne">
+    <input type="file" name="cv" accept="application/pdf" required>
+    <button type="submit">{{ "Remplacer" if cv_original else "Importer" }} le CV</button>
+  </form>
+</section>
+
+<form method="post" class="carte">
+  <h2>Mes informations</h2>
+  <p class="discret">Ces infos servent à générer un CV que l'appli pourra adapter à chaque offre.</p>
+
+  <div class="grille">
+    <label>Prénom <input name="prenom" value="{{ p.prenom }}"></label>
+    <label>Nom <input name="nom" value="{{ p.nom }}"></label>
+    <label>Email <input type="email" name="email" value="{{ p.email }}"></label>
+    <label>Téléphone <input name="telephone" value="{{ p.telephone }}"></label>
+    <label>Ville <input name="ville" value="{{ p.ville }}"></label>
+    <label>Permis <input name="permis" value="{{ p.permis }}" placeholder="B, véhiculé..."></label>
+  </div>
+
+  <label>Titre du CV <input name="titre" value="{{ p.titre }}" placeholder="Agent d'entretien / Agent de restauration"></label>
+  <label>Phrase d'accroche
+    <textarea name="accroche" rows="3" placeholder="Sérieux et ponctuel, avec 3 ans d'expérience...">{{ p.accroche }}</textarea>
+  </label>
+  <label>Disponibilité <input name="disponibilite" value="{{ p.disponibilite }}" placeholder="Immédiate, temps plein ou partiel"></label>
+
+  <label>Expériences
+    <span class="aide">Un bloc par expérience, séparés par une ligne vide.<br>
+      1re ligne : <code>Poste | Entreprise | Ville | Dates</code>, puis une tâche par ligne.</span>
+    <textarea name="experiences" rows="10" placeholder="Agent d'entretien | Onet | Lyon | 2022 - 2024
+- Nettoyage des bureaux et sanitaires
+- Utilisation d'autolaveuse
+
+Plongeur | Restaurant Le Midi | Lyon | 2021">{{ experiences_txt }}</textarea>
+  </label>
+
+  <label>Compétences <span class="aide">Une par ligne.</span>
+    <textarea name="competences" rows="6" placeholder="Respect des normes HACCP
+Utilisation des produits d'entretien">{{ p.competences | join('\n') }}</textarea>
+  </label>
+
+  <label>Formations
+    <span class="aide">Même format que les expériences : <code>Diplôme | École | Ville | Année</code></span>
+    <textarea name="formations" rows="4">{{ formations_txt }}</textarea>
+  </label>
+
+  <div class="grille">
+    <label>Qualités <span class="aide">Une par ligne.</span>
+      <textarea name="qualites" rows="4" placeholder="Ponctuel
+Travail en équipe">{{ p.qualites | join('\n') }}</textarea>
+    </label>
+    <label>Langues <span class="aide">Une par ligne.</span>
+      <textarea name="langues" rows="4" placeholder="Français (courant)">{{ p.langues | join('\n') }}</textarea>
+    </label>
+  </div>
+
+  <fieldset>
+    <legend>CV à joindre aux candidatures</legend>
+    <label class="radio"><input type="radio" name="cv_a_envoyer" value="original" {{ "checked" if p.cv_a_envoyer == "original" }}> Mon CV PDF importé (tel quel)</label>
+    <label class="radio"><input type="radio" name="cv_a_envoyer" value="genere" {{ "checked" if p.cv_a_envoyer == "genere" }}> Le CV généré par l'appli (adaptable à chaque offre)</label>
+  </fieldset>
+
+  <div class="ligne">
+    <button type="submit">Enregistrer</button>
+    <a class="bouton secondaire" href="{{ url_for('voir_cv_genere') }}" target="_blank">Aperçu du CV généré</a>
+  </div>
+</form>
+{% endblock %}

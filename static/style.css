@@ -1,0 +1,44 @@
+:root {
+  --bleu: #1f4e79;
+  --bleu-clair: #e8f0f8;
+  --texte: #1d1d1f;
+  --gris: #6b6b70;
+  --fond: #f5f6f8;
+  --vert: #1a7f37;
+  --orange: #b35900;
+  --rouge: #c62828;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; background: var(--fond); color: var(--texte); }
+header { background: var(--bleu); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; }
+header a { color: #fff; text-decoration: none; margin-left: 18px; }
+.logo { font-weight: 700; font-size: 1.3rem; margin-left: 0; }
+.logo span { opacity: .75; }
+main { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+h1 { margin-top: 0; }
+h2 { margin-top: 0; font-size: 1.15rem; color: var(--bleu); }
+.cartes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.carte { background: #fff; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 18px; }
+.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 16px; }
+label { display: block; font-weight: 600; margin-bottom: 12px; font-size: .95rem; }
+label.radio { font-weight: 400; }
+input:not([type=radio]):not([type=file]), textarea {
+  display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid #c9ccd1;
+  border-radius: 6px; font: inherit; font-weight: 400;
+}
+textarea { resize: vertical; }
+fieldset { border: 1px solid #dfe1e5; border-radius: 8px; margin: 8px 0 16px; }
+.aide { display: block; font-weight: 400; color: var(--gris); font-size: .85rem; }
+code { background: var(--bleu-clair); padding: 1px 5px; border-radius: 4px; }
+button, .bouton {
+  display: inline-block; background: var(--bleu); color: #fff; border: 0; border-radius: 6px;
+  padding: 9px 16px; font: inherit; cursor: pointer; text-decoration: none;
+}
+.bouton.secondaire { background: #fff; color: var(--bleu); border: 1px solid var(--bleu); }
+.ligne { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.flash { padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+.flash.ok { background: #e6f4ea; color: var(--vert); }
+.flash.erreur { background: #fdecea; color: var(--rouge); }
+.ok { color: var(--vert); }
+.attention { color: var(--orange); }
+.discret { color: var(--gris); font-size: .9rem; }

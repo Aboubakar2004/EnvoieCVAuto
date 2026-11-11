@@ -1,0 +1,11 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets (mots de passe, clés API)
+.env
+
+# Données personnelles : CV, profil, base de données
+data/*
+!data/.gitkeep

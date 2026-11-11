@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block contenu %}
+<h1>Tableau de bord</h1>
+
+<div class="cartes">
+  <div class="carte">
+    <h2>1. Mon CV</h2>
+    {% if cv_original or profil.experiences %}
+      <p class="ok">✔ CV {{ "importé" if cv_original else "" }}{{ " et profil rempli" if profil.experiences else "" }}</p>
+    {% else %}
+      <p class="attention">Importe ton CV et remplis ton profil.</p>
+    {% endif %}
+    <a class="bouton" href="{{ url_for('profil') }}">Gérer mon CV</a>
+  </div>
+
+  <div class="carte">
+    <h2>2. Recherche d'offres</h2>
+    {% if france_travail_ok %}<p class="ok">✔ API France Travail configurée</p>
+    {% else %}<p class="attention">Clés France Travail à mettre dans le fichier .env</p>{% endif %}
+    <p class="discret">Bientôt disponible.</p>
+  </div>
+
+  <div class="carte">
+    <h2>3. Envoi automatique</h2>
+    {% if gmail_ok %}<p class="ok">✔ Gmail configuré</p>
+    {% else %}<p class="attention">Gmail à configurer dans le fichier .env</p>{% endif %}
+    <p class="discret">Bientôt disponible.</p>
+  </div>
+</div>
+{% endblock %}
