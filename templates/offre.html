@@ -9,7 +9,7 @@
   <p class="discret">
     {{ o.type_contrat or "" }}{% if o.duree_travail %} · {{ o.duree_travail }}{% endif %}
     {% if o.salaire %} · {{ o.salaire }}{% endif %} · publiée le {{ o.date_creation }}
-    · source : {{ "France Travail" if o.source == "france_travail" else "ajout manuel" }}
+    · source : {{ {"france_travail": "France Travail", "adzuna": "Adzuna"}.get(o.source, "ajout manuel") }}
   </p>
   <p>
     {% if o.email_contact %}<span class="badge vert">✉ {{ o.email_contact }}</span>

@@ -15,8 +15,8 @@
 
   <div class="carte">
     <h2>2. Recherche d'offres</h2>
-    {% if france_travail_ok %}<p class="ok">✔ API France Travail configurée</p>
-    {% else %}<p class="attention">Clés France Travail à mettre dans le fichier .env</p>{% endif %}
+    {% if sources %}<p class="ok">✔ Source(s) : {{ sources | join(", ") }}</p>
+    {% else %}<p class="attention">Clés Adzuna à mettre dans le fichier .env</p>{% endif %}
     <p>{{ compteurs.get("nouvelle", 0) }} nouvelle(s) · {{ compteurs.get("a_postuler", 0) }} à postuler</p>
     <a class="bouton" href="{{ url_for('offres') }}">Voir les offres</a>
   </div>

@@ -1,10 +1,12 @@
 """Logique de recherche d'offres, partagée entre l'interface et l'envoi automatique."""
 import re
+import time
 import uuid
 from datetime import date
 
-from . import db, france_travail
-from .france_travail import FranceTravailErreur
+from . import db
+from .sources import SourceErreur, adzuna, france_travail, sources_actives
+from .sources.commun import chercher_commune, chercher_departement, extraire_email
 
 RE_DEPARTEMENT = re.compile(r"^(\d{2,3}|2[AaBb])$")
 
@@ -24,29 +26,53 @@ def preparer_recherche(mots_cles: list[str], lieu: str, distance: str | int | No
 
     lieu = (lieu or "").strip()
     if RE_DEPARTEMENT.match(lieu):
-        r["departement"] = lieu.upper().zfill(2)
-        r["ville"] = f"Département {r['departement']}"
+        code = lieu.upper().zfill(2)
+        dep = chercher_departement(code)
+        if not dep:
+            raise ValueError(f"Département inconnu : « {lieu} ».")
+        r["departement"], r["ville"] = dep["code"], dep["nom"]
     elif lieu:
-        commune = france_travail.chercher_commune(lieu)
+        commune = chercher_commune(lieu)
         if not commune:
             raise ValueError(f"Ville introuvable : « {lieu} ».")
-        r["commune"] = commune["code"]
-        r["ville"] = commune["nom"]
+        r["commune"], r["ville"] = commune["code"], commune["nom"]
         r["distance"] = int(distance) if str(distance or "").isdigit() else 10
     return r
 
 
+def _chercher(source, mot_cle: str, r: dict, contrats: list[str], publiee_depuis: int) -> list[dict]:
+    if source is adzuna:
+        return adzuna.rechercher(mot_cle, lieu=r.get("ville"), distance=r.get("distance"),
+                                 contrats=contrats, publiee_depuis=publiee_depuis)
+    if source is france_travail:
+        return france_travail.rechercher(mot_cle, departement=r.get("departement"),
+                                         commune=r.get("commune"), distance=r.get("distance"),
+                                         contrats=contrats, publiee_depuis=publiee_depuis)
+    raise ValueError(source)
+
+
 def lancer_recherche(r: dict, publiee_depuis: int = 31) -> tuple[int, int, list[str]]:
-    """Lance une recherche et enregistre les offres. Renvoie (trouvées, nouvelles, erreurs)."""
-    offres, erreurs = france_travail.rechercher_plusieurs(
-        r["mots_cles"].splitlines(),
-        departement=r.get("departement"),
-        commune=r.get("commune"),
-        distance=r.get("distance"),
-        contrats=(r.get("contrats") or "").split(",") if r.get("contrats") else None,
-        publiee_depuis=publiee_depuis,
-    )
-    nouvelles = db.enregistrer_offres(offres)
+    """Lance une recherche sur toutes les sources configurées et enregistre les offres.
+
+    Renvoie (trouvées, nouvelles, erreurs).
+    """
+    sources = sources_actives()
+    if not sources:
+        return 0, 0, ["Aucune source d'offres configurée : ajoute tes clés Adzuna dans le fichier .env."]
+
+    contrats = (r.get("contrats") or "").split(",") if r.get("contrats") else []
+    offres: dict[str, dict] = {}
+    erreurs = []
+    for source in sources:
+        for mc in r["mots_cles"].splitlines():
+            try:
+                for o in _chercher(source, mc, r, contrats, publiee_depuis):
+                    offres.setdefault(o["id"], o)
+            except SourceErreur as e:
+                erreurs.append(f"{source.NOM} : {e}")
+                break  # erreur de clé ou de quota : inutile d'insister sur cette source
+            time.sleep(0.4)  # respecte les quotas d'appels des API
+    nouvelles = db.enregistrer_offres(list(offres.values()))
     return len(offres), nouvelles, erreurs
 
 
@@ -56,7 +82,7 @@ def ajouter_offre_manuelle(form) -> str:
     if not intitule:
         raise ValueError("L'intitulé du poste est obligatoire.")
     description = form.get("description", "").strip()
-    email = form.get("email_contact", "").strip() or france_travail.extraire_email(description)
+    email = form.get("email_contact", "").strip() or extraire_email(description)
     url = form.get("url_offre", "").strip() or None
     offre = {
         "id": "MAN-" + uuid.uuid4().hex[:10],
@@ -75,6 +101,3 @@ def ajouter_offre_manuelle(form) -> str:
     }
     db.enregistrer_offres([offre])
     return offre["id"]
-
-
-__all__ = ["preparer_recherche", "lancer_recherche", "ajouter_offre_manuelle", "FranceTravailErreur"]

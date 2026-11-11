@@ -3,12 +3,15 @@
 {% block contenu %}
 <h1>Offres d'emploi</h1>
 
-{% if not france_travail_ok %}
+{% if not sources %}
 <div class="flash erreur">
-  Recherche France Travail pas encore configurée : remplis <code>FRANCE_TRAVAIL_CLIENT_ID</code> et
-  <code>FRANCE_TRAVAIL_CLIENT_SECRET</code> dans le fichier <code>.env</code>, puis relance l'appli.
+  Recherche pas encore configurée : remplis <code>ADZUNA_APP_ID</code> et
+  <code>ADZUNA_APP_KEY</code> dans le fichier <code>.env</code>, puis relance l'appli.
   En attendant, tu peux ajouter des offres à la main (en bas de page).
 </div>
+{% else %}
+<p class="discret">Sources : {{ sources | join(", ") }}.
+  {% if "Adzuna" in sources %}Offres fournies par <a href="https://www.adzuna.fr" target="_blank" rel="noopener">Adzuna</a>.{% endif %}</p>
 {% endif %}
 
 <details class="carte" {{ "open" if not offres and statut == "nouvelle" }}>

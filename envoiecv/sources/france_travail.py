@@ -1,8 +1,8 @@
-"""Client de l'API "Offres d'emploi v2" de France Travail.
+"""Source d'offres : API "Offres d'emploi v2" de France Travail.
 
-Doc : https://francetravail.io/data/api/offres-emploi
-Il faut un compte (gratuit) sur francetravail.io, créer une application et
-l'abonner à l'API "Offres d'emploi v2" pour obtenir client_id / client_secret.
+⚠ Depuis fin 2026, cette API n'est plus proposée aux nouvelles applications sur
+francetravail.io (accès sur demande via le formulaire de contact). Ce module reste
+utilisable si l'accès est accordé : il suffit de remplir les clés dans .env.
 """
 import re
 import time
@@ -10,42 +10,16 @@ import unicodedata
 
 import requests
 
-from . import config
+from .. import config
+from .commun import TIMEOUT, SourceErreur, extraire_email
 
+NOM = "France Travail"
 URL_TOKEN = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
 URL_SEARCH = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
-URL_GEO = "https://geo.api.gouv.fr/communes"
 SCOPE = "api_offresdemploiv2 o2dsoffre"
-TIMEOUT = 20
 
 # Paris, Lyon et Marseille : l'API attend un code d'arrondissement.
 COMMUNES_ARRONDISSEMENTS = {"75056": "75101", "69123": "69381", "13055": "13201"}
-
-# Mots-clés proposés dans l'interface, par catégorie de métier.
-CATEGORIES = {
-    "Nettoyage / propreté": [
-        "agent entretien", "agent proprete", "agent de service", "agent de menage",
-        "laveur de vitres",
-    ],
-    "Hôtellerie": [
-        "femme de chambre", "valet de chambre", "employe etage", "receptionniste hotel",
-        "gouvernante hotel",
-    ],
-    "Restauration (dont cantines scolaires)": [
-        "agent de restauration", "restauration collective", "restauration scolaire",
-        "cantine", "plongeur", "employe polyvalent restauration", "aide cuisine",
-        "commis de cuisine",
-    ],
-}
-
-TYPES_CONTRAT = {"CDI": "CDI", "CDD": "CDD", "MIS": "Intérim", "SAI": "Saisonnier"}
-
-RE_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-
-
-class FranceTravailErreur(Exception):
-    pass
-
 
 _token = {"valeur": None, "expire": 0.0}
 
@@ -58,10 +32,7 @@ def _get_token() -> str:
     if _token["valeur"] and time.time() < _token["expire"] - 60:
         return _token["valeur"]
     if not est_configure():
-        raise FranceTravailErreur(
-            "Clés France Travail manquantes : remplis FRANCE_TRAVAIL_CLIENT_ID et "
-            "FRANCE_TRAVAIL_CLIENT_SECRET dans le fichier .env."
-        )
+        raise SourceErreur("Clés France Travail manquantes dans le fichier .env.")
     try:
         r = requests.post(
             URL_TOKEN,
@@ -75,11 +46,11 @@ def _get_token() -> str:
             timeout=TIMEOUT,
         )
     except requests.RequestException as e:
-        raise FranceTravailErreur(f"Impossible de contacter France Travail : {e}") from e
+        raise SourceErreur(f"Impossible de contacter France Travail : {e}") from e
     if r.status_code != 200:
-        raise FranceTravailErreur(
-            f"Connexion à France Travail refusée ({r.status_code}). Vérifie tes clés et que "
-            f"ton application est bien abonnée à l'API « Offres d'emploi v2 ». Détail : {r.text[:200]}"
+        raise SourceErreur(
+            f"Connexion à France Travail refusée ({r.status_code}). L'application doit être "
+            f"abonnée à l'API « Offres d'emploi v2 ». Détail : {r.text[:200]}"
         )
     data = r.json()
     _token["valeur"] = data["access_token"]
@@ -94,46 +65,10 @@ def nettoyer_mot_cle(texte: str) -> str:
     return " ".join(m for m in mots if len(m) >= 2).lower()
 
 
-def chercher_commune(nom: str) -> dict | None:
-    """Trouve le code INSEE d'une ville (API publique geo.api.gouv.fr, sans clé)."""
-    nom = nom.strip()
-    if not nom:
-        return None
-    params = {"fields": "nom,code,codesPostaux,codeDepartement", "limit": 1, "boost": "population"}
-    if nom.isdigit() and len(nom) == 5:
-        params["codePostal"] = nom
-    else:
-        params["nom"] = nom
-    try:
-        r = requests.get(URL_GEO, params=params, timeout=TIMEOUT)
-        r.raise_for_status()
-        res = r.json()
-    except requests.RequestException as e:
-        raise FranceTravailErreur(f"Recherche de la ville impossible : {e}") from e
-    if not res:
-        return None
-    c = res[0]
-    return {
-        "nom": c["nom"],
-        "code": COMMUNES_ARRONDISSEMENTS.get(c["code"], c["code"]),
-        "departement": c.get("codeDepartement"),
-    }
-
-
-def extraire_email(*textes: str | None) -> str | None:
-    for t in textes:
-        if t:
-            m = RE_EMAIL.search(t)
-            if m:
-                return m.group(0).rstrip(".").lower()
-    return None
-
-
 def normaliser_offre(o: dict, mot_cle: str = "") -> dict:
     contact = o.get("contact") or {}
     lieu = o.get("lieuTravail") or {}
     origine = o.get("origineOffre") or {}
-    url_postulation = contact.get("urlPostulation") or origine.get("urlOrigine")
     return {
         "id": "FT-" + o["id"],
         "source": "france_travail",
@@ -149,7 +84,7 @@ def normaliser_offre(o: dict, mot_cle: str = "") -> dict:
             contact.get("courriel"), contact.get("coordonnees1"), contact.get("coordonnees2"),
             contact.get("coordonnees3"), o.get("description"),
         ),
-        "url_postulation": url_postulation,
+        "url_postulation": contact.get("urlPostulation") or origine.get("urlOrigine"),
         "url_offre": f"https://candidat.francetravail.fr/offres/recherche/detail/{o['id']}",
         "competences": [c["libelle"] for c in o.get("competences", []) if c.get("libelle")]
         + [q["libelle"] for q in o.get("qualitesProfessionnelles", []) if q.get("libelle")],
@@ -166,25 +101,29 @@ def rechercher(mot_cle: str, departement: str | None = None, commune: str | None
         return []
     params = {"motsCles": mc, "range": "0-149", "sort": 1, "publieeDepuis": publiee_depuis}
     if commune:
-        params["commune"] = commune
+        params["commune"] = COMMUNES_ARRONDISSEMENTS.get(commune, commune)
         if distance is not None:
             params["distance"] = distance
     elif departement:
         params["departement"] = departement
-    if contrats:
-        params["typeContrat"] = ",".join(contrats)
+    contrats = contrats or []
+    types = [c for c in contrats if c in ("CDI", "CDD", "MIS", "SAI")]
+    if types:
+        params["typeContrat"] = ",".join(types)
+    if "PARTIEL" in contrats:
+        params["tempsPlein"] = "false"
 
-    for essai in range(3):
+    for _ in range(3):
         try:
             r = requests.get(
                 URL_SEARCH, params=params, timeout=TIMEOUT,
                 headers={"Authorization": f"Bearer {_get_token()}", "Accept": "application/json"},
             )
         except requests.RequestException as e:
-            raise FranceTravailErreur(f"Impossible de contacter France Travail : {e}") from e
+            raise SourceErreur(f"Impossible de contacter France Travail : {e}") from e
         if r.status_code == 401:  # jeton expiré : on en redemande un
             _token["valeur"] = None
-        elif r.status_code == 429:  # quota dépassé : attendre le délai demandé
+        elif r.status_code == 429:  # quota (4 appels/s) dépassé : attendre le délai demandé
             time.sleep(min(int(r.headers.get("Retry-After", "1") or 1), 10))
         else:
             break
@@ -192,24 +131,5 @@ def rechercher(mot_cle: str, departement: str | None = None, commune: str | None
     if r.status_code == 204:  # aucune offre
         return []
     if r.status_code not in (200, 206):
-        raise FranceTravailErreur(f"Erreur France Travail ({r.status_code}) : {r.text[:300]}")
+        raise SourceErreur(f"Erreur France Travail ({r.status_code}) : {r.text[:300]}")
     return [normaliser_offre(o, mot_cle) for o in r.json().get("resultats", [])]
-
-
-def rechercher_plusieurs(mots_cles: list[str], **kwargs) -> tuple[list[dict], list[str]]:
-    """Lance une recherche par mot-clé et fusionne les résultats (sans doublons).
-
-    Renvoie (offres, erreurs).
-    """
-    offres: dict[str, dict] = {}
-    erreurs = []
-    for mc in mots_cles:
-        try:
-            for o in rechercher(mc, **kwargs):
-                offres.setdefault(o["id"], o)
-        except FranceTravailErreur as e:
-            erreurs.append(f"« {mc} » : {e}")
-            if "Clés France Travail" in str(e) or "refusée" in str(e):
-                break  # inutile de réessayer avec les autres mots-clés
-        time.sleep(0.3)  # quota France Travail : 4 appels par seconde maximum
-    return list(offres.values()), erreurs

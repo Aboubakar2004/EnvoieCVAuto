@@ -5,11 +5,11 @@ Lancer :  .venv\\Scripts\\python app.py   puis ouvrir http://127.0.0.1:5000
 from flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for
 from pypdf import PdfReader
 
-from envoiecv import config, db, france_travail
+from envoiecv import config, db
+from envoiecv.sources import CATEGORIES, TYPES_CONTRAT, SourceErreur, sources_actives
 from envoiecv.cv_pdf import generer_cv_pdf
 from envoiecv.profil import blocs_en_texte, charger_profil, profil_depuis_formulaire, sauver_profil
-from envoiecv.recherche import (FranceTravailErreur, ajouter_offre_manuelle, lancer_recherche,
-                                preparer_recherche)
+from envoiecv.recherche import ajouter_offre_manuelle, lancer_recherche, preparer_recherche
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -25,7 +25,7 @@ def accueil():
         compteurs=db.compter_par_statut(),
         cv_original=config.CV_ORIGINAL_FILE.exists(),
         gmail_ok=bool(config.GMAIL_ADDRESS and config.GMAIL_APP_PASSWORD),
-        france_travail_ok=bool(config.FRANCE_TRAVAIL_CLIENT_ID and config.FRANCE_TRAVAIL_CLIENT_SECRET),
+        sources=[s.NOM for s in sources_actives()],
     )
 
 
@@ -115,9 +115,9 @@ def offres():
         statuts=db.STATUTS,
         compteurs=db.compter_par_statut(),
         recherches=db.lister_recherches(),
-        categories=france_travail.CATEGORIES,
-        types_contrat=france_travail.TYPES_CONTRAT,
-        france_travail_ok=france_travail.est_configure(),
+        categories=CATEGORIES,
+        types_contrat=TYPES_CONTRAT,
+        sources=[s.NOM for s in sources_actives()],
     )
 
 
@@ -131,7 +131,7 @@ def rechercher_offres():
             db.ajouter_recherche(r)
             flash("Recherche enregistrée : elle pourra être relancée automatiquement.", "ok")
         _afficher_resultat(*lancer_recherche(r, int(f.get("publiee_depuis", 31))))
-    except (ValueError, FranceTravailErreur) as e:
+    except (ValueError, SourceErreur) as e:
         flash(str(e), "erreur")
     return redirect(url_for("offres"))
 
@@ -141,7 +141,7 @@ def relancer_recherche(rid):
     r = db.get_recherche(rid) or abort(404)
     try:
         _afficher_resultat(*lancer_recherche(r))
-    except FranceTravailErreur as e:
+    except SourceErreur as e:
         flash(str(e), "erreur")
     return redirect(url_for("offres"))
 
