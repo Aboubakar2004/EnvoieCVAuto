@@ -174,13 +174,20 @@ def rechercher(mot_cle: str, departement: str | None = None, commune: str | None
     if contrats:
         params["typeContrat"] = ",".join(contrats)
 
-    try:
-        r = requests.get(
-            URL_SEARCH, params=params, timeout=TIMEOUT,
-            headers={"Authorization": f"Bearer {_get_token()}", "Accept": "application/json"},
-        )
-    except requests.RequestException as e:
-        raise FranceTravailErreur(f"Impossible de contacter France Travail : {e}") from e
+    for essai in range(3):
+        try:
+            r = requests.get(
+                URL_SEARCH, params=params, timeout=TIMEOUT,
+                headers={"Authorization": f"Bearer {_get_token()}", "Accept": "application/json"},
+            )
+        except requests.RequestException as e:
+            raise FranceTravailErreur(f"Impossible de contacter France Travail : {e}") from e
+        if r.status_code == 401:  # jeton expiré : on en redemande un
+            _token["valeur"] = None
+        elif r.status_code == 429:  # quota dépassé : attendre le délai demandé
+            time.sleep(min(int(r.headers.get("Retry-After", "1") or 1), 10))
+        else:
+            break
 
     if r.status_code == 204:  # aucune offre
         return []
@@ -204,5 +211,5 @@ def rechercher_plusieurs(mots_cles: list[str], **kwargs) -> tuple[list[dict], li
             erreurs.append(f"« {mc} » : {e}")
             if "Clés France Travail" in str(e) or "refusée" in str(e):
                 break  # inutile de réessayer avec les autres mots-clés
-        time.sleep(0.15)  # l'API limite le nombre d'appels par seconde
+        time.sleep(0.3)  # quota France Travail : 4 appels par seconde maximum
     return list(offres.values()), erreurs
