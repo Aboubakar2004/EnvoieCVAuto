@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS offres (
     date_ajout      TEXT NOT NULL,
     score           INTEGER NOT NULL DEFAULT 0, -- correspondance avec le CV (0 à 100)
     date_candidature TEXT,              -- quand la candidature a été faite
-    preuve          TEXT                -- n° de candidature, email de confirmation reçu...
+    preuve          TEXT,               -- n° de candidature, email de confirmation reçu...
+    lettre          TEXT                -- lettre de motivation modifiée à la main (sinon générée)
 );
 CREATE TABLE IF NOT EXISTS meta (
     cle    TEXT PRIMARY KEY,
@@ -56,6 +57,7 @@ COLONNES_AJOUTEES = {
     "score": "INTEGER NOT NULL DEFAULT 0",
     "date_candidature": "TEXT",
     "preuve": "TEXT",
+    "lettre": "TEXT",
 }
 
 
@@ -182,6 +184,12 @@ def marquer_postule(offre_id: str, preuve: str = "") -> None:
     if preuve.strip():
         with connexion() as con:
             con.execute("UPDATE offres SET preuve = ? WHERE id = ?", (preuve.strip(), offre_id))
+
+
+def enregistrer_lettre(offre_id: str, texte: str | None) -> None:
+    """Sauvegarde la lettre modifiée (None = revenir à la lettre générée automatiquement)."""
+    with connexion() as con:
+        con.execute("UPDATE offres SET lettre = ? WHERE id = ?", (texte, offre_id))
 
 
 def lister_candidatures() -> list[sqlite3.Row]:

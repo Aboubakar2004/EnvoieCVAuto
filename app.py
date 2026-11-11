@@ -5,12 +5,16 @@ Lancer :  .venv\\Scripts\\python app.py   puis ouvrir http://127.0.0.1:5000
 import os
 from datetime import date, timedelta
 
-from flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for
+import re
+
+from flask import (Flask, Response, abort, flash, redirect, render_template, request, send_file,
+                   url_for)
 from pypdf import PdfReader
 
 from envoiecv import config, db
 from envoiecv.sources import CATEGORIES, TYPES_CONTRAT, SourceErreur, sources_actives
-from envoiecv.cv_pdf import generer_cv_pdf
+from envoiecv.cv_pdf import generer_cv_pdf, generer_lettre_pdf
+from envoiecv.lettre import generer_lettre, generer_message_court
 from envoiecv.profil import blocs_en_texte, charger_profil, profil_depuis_formulaire, sauver_profil
 from envoiecv.recherche import (ajouter_offre_manuelle, lancer_recherche, preparer_recherche,
                                 recalculer_scores)
@@ -67,7 +71,45 @@ def postule(offre_id):
     flash(f"Candidature enregistrée : « {o['intitule']} ». Tu la retrouves dans Mes candidatures.", "ok")
     if request.form.get("retour") == "detail":
         return redirect(url_for("detail_offre", offre_id=offre_id))
+    if request.form.get("retour") == "accueil":
+        return redirect(url_for("accueil"))
     return redirect(request.referrer or url_for("accueil"))
+
+
+@app.route("/offres/<offre_id>/postuler")
+def kit_candidature(offre_id):
+    """Tout ce qu'il faut pour postuler : lettre prête à copier, CV, lien vers l'offre."""
+    o = db.get_offre(offre_id) or abort(404)
+    p = charger_profil()
+    return render_template(
+        "postuler.html", o=o, p=p,
+        lettre=o.get("lettre") or generer_lettre(p, o),
+        lettre_modifiee=bool(o.get("lettre")),
+        message=generer_message_court(p, o),
+        cv_original=config.CV_ORIGINAL_FILE.exists(),
+    )
+
+
+@app.route("/offres/<offre_id>/lettre", methods=["POST"])
+def modifier_lettre(offre_id):
+    db.get_offre(offre_id) or abort(404)
+    if request.form.get("action") == "regenerer":
+        db.enregistrer_lettre(offre_id, None)
+        flash("Lettre régénérée automatiquement.", "ok")
+    else:
+        db.enregistrer_lettre(offre_id, request.form.get("lettre", "").strip() or None)
+        flash("Lettre enregistrée.", "ok")
+    return redirect(url_for("kit_candidature", offre_id=offre_id))
+
+
+@app.route("/offres/<offre_id>/lettre.pdf")
+def lettre_pdf(offre_id):
+    o = db.get_offre(offre_id) or abort(404)
+    p = charger_profil()
+    contenu = generer_lettre_pdf(p, o, o.get("lettre") or generer_lettre(p, o))
+    nom = re.sub(r"[^A-Za-z0-9]+", "_", f"Lettre_motivation_{p.get('prenom', '')}_{p.get('nom', '')}").strip("_")
+    return Response(contenu, mimetype="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{nom}.pdf"'})
 
 
 @app.route("/candidatures")
@@ -133,6 +175,11 @@ def voir_cv_original():
     if not config.CV_ORIGINAL_FILE.exists():
         flash("Aucun CV importé.", "erreur")
         return redirect(url_for("profil"))
+    if request.args.get("telecharger"):
+        p = charger_profil()
+        nom = re.sub(r"[^A-Za-z0-9]+", "_", f"CV_{p.get('prenom', '')}_{p.get('nom', '')}").strip("_")
+        return send_file(config.CV_ORIGINAL_FILE, mimetype="application/pdf",
+                         as_attachment=True, download_name=f"{nom}.pdf")
     return send_file(config.CV_ORIGINAL_FILE, mimetype="application/pdf")
 
 

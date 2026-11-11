@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block titre %}Postuler - {{ o.intitule }}{% endblock %}
+{% block contenu %}
+<p><a href="{{ url_for('accueil') }}">← Retour aux offres</a></p>
+<h1>Postuler : {{ o.intitule }}</h1>
+<p class="discret">{{ o.entreprise or "Entreprise non précisée" }} · {{ o.lieu or "" }}
+  {% if o.type_contrat %} · {{ o.type_contrat }}{% endif %} ·
+  <a href="{{ url_for('detail_offre', offre_id=o.id) }}">détail de l'offre</a></p>
+
+{% if o.statut == "envoyee" %}
+<div class="flash ok">✔ Tu as déjà postulé à cette offre le {{ o.date_candidature[:10] }}.</div>
+{% endif %}
+
+<section class="carte etape">
+  <h2>1. Tes documents</h2>
+  <div class="ligne">
+    {% if cv_original %}
+    <a class="bouton secondaire" href="{{ url_for('voir_cv_original', telecharger=1) }}">⬇ Mon CV (PDF)</a>
+    {% endif %}
+    <a class="bouton secondaire" href="{{ url_for('lettre_pdf', offre_id=o.id) }}">⬇ Lettre de motivation (PDF)</a>
+  </div>
+  <p class="aide">Télécharge-les si le site demande de joindre des fichiers.</p>
+</section>
+
+<section class="carte etape">
+  <h2>2. Message pour le formulaire</h2>
+  <p class="aide">À coller dans le champ « message », « motivation » ou « commentaire » du site.</p>
+  <textarea id="message" rows="9" readonly>{{ message }}</textarea>
+  <button type="button" class="copier" data-cible="message">📋 Copier le message</button>
+</section>
+
+<section class="carte etape">
+  <h2>3. Lettre de motivation complète</h2>
+  <p class="aide">Générée à partir de ton CV et de l'offre. Tu peux la modifier avant de la copier ou de la télécharger.
+    {% if lettre_modifiee %}<strong>(version modifiée par toi)</strong>{% endif %}</p>
+  <form method="post" action="{{ url_for('modifier_lettre', offre_id=o.id) }}">
+    <textarea id="lettre" name="lettre" rows="22">{{ lettre }}</textarea>
+    <div class="ligne">
+      <button type="button" class="copier" data-cible="lettre">📋 Copier la lettre</button>
+      <button name="action" value="enregistrer" class="secondaire">Enregistrer mes modifications</button>
+      {% if lettre_modifiee %}<button name="action" value="regenerer" class="secondaire">Revenir à la lettre automatique</button>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="carte etape">
+  <h2>4. Postuler sur le site</h2>
+  {% if o.url_postulation or o.url_offre %}
+  <a class="bouton postuler" data-id="{{ o.id }}" href="{{ o.url_postulation or o.url_offre }}"
+     target="_blank" rel="noopener">Ouvrir l'offre et postuler ↗</a>
+  {% endif %}
+  {% if o.email_contact %}<p>Ou par email : <strong>{{ o.email_contact }}</strong></p>{% endif %}
+  {% if o.statut != "envoyee" %}
+  <form method="post" action="{{ url_for('postule', offre_id=o.id) }}" class="confirmation" id="confirm-{{ o.id }}" hidden>
+    <strong>Tu as terminé ta candidature sur le site ?</strong>
+    <input name="preuve" placeholder="Facultatif : n° de candidature, « email de confirmation reçu »…">
+    <input type="hidden" name="retour" value="accueil">
+    <div class="ligne">
+      <button>Oui, j'ai postulé</button>
+      <button type="button" class="secondaire" onclick="this.form.hidden = true">Pas encore</button>
+    </div>
+  </form>
+  <p><button type="button" class="secondaire postuler" data-id="{{ o.id }}">J'ai déjà postulé</button></p>
+  {% endif %}
+</section>
+
+<script>
+  document.querySelectorAll(".copier").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var zone = document.getElementById(b.dataset.cible);
+      var fini = function () { var t = b.textContent; b.textContent = "✔ Copié !"; setTimeout(function () { b.textContent = t; }, 2000); };
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(zone.value).then(fini);
+      } else {
+        zone.select(); document.execCommand("copy"); fini();
+      }
+    });
+  });
+</script>
+{% endblock %}

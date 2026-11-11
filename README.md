@@ -12,6 +12,10 @@ adapter le CV à chaque offre et envoyer les candidatures par email.
 - [x] **Recherche automatique** : au démarrage puis toutes les 3 h, à partir des « postes
       recherchés », de la ville et du rayon du CV. Chaque offre reçoit un score de correspondance
       avec le CV ; l'accueil affiche les offres pertinentes, les plus récentes d'abord.
+- [x] **Suivi des candidatures** : « J'ai postulé » avec date et preuve, page « Mes candidatures »,
+      rappel de relance après 7 jours
+- [x] **Lettre de motivation automatique** pour chaque offre (texte à copier, PDF, message court
+      pour les formulaires), basée uniquement sur le contenu du CV ; modifiable offre par offre
 - [ ] Adaptation du CV à l'offre
 - [ ] Envoi automatique des candidatures via Gmail
 

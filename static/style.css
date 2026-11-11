@@ -64,6 +64,8 @@ td.actions, .actions { display: flex; gap: 8px; align-items: center; flex-wrap: 
 .offre .actions { margin-top: 8px; }
 .badge { display: inline-block; font-size: .8rem; padding: 2px 8px; border-radius: 10px; background: #eceef1; color: var(--gris); white-space: nowrap; }
 .badge.vert { background: #e6f4ea; color: var(--vert); }
+.etape textarea { font-family: inherit; line-height: 1.45; margin-bottom: 8px; }
+.etape .bouton.postuler { font-size: 1.05rem; padding: 11px 20px; }
 .confirmation { margin-top: 10px; padding: 12px 14px; border-radius: 8px; background: var(--bleu-clair); }
 .confirmation[hidden] { display: none; }
 .confirmation input { margin: 8px 0; }

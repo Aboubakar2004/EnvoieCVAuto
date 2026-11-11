@@ -53,6 +53,48 @@ class _CV(FPDF):
         self.ln(1.5)
 
 
+def generer_lettre_pdf(profil: dict, offre: dict, texte: str) -> bytes:
+    """Lettre de motivation au format courrier (coordonnées, destinataire, texte)."""
+    pdf = FPDF(format="A4")
+    pdf.set_margins(22, 20, 22)
+    pdf.set_auto_page_break(True, margin=18)
+    pdf.add_page()
+
+    # Expéditeur (en haut à gauche)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 5.5, _t(f"{profil.get('prenom', '')} {profil.get('nom', '')}".strip()), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    for ligne in [profil.get("adresse") or profil.get("ville"), profil.get("telephone"), profil.get("email")]:
+        if ligne:
+            pdf.cell(0, 5, _t(ligne), new_x="LMARGIN", new_y="NEXT")
+
+    # Destinataire (à droite)
+    dest = [x for x in [offre.get("entreprise"), offre.get("lieu")] if x]
+    if dest:
+        pdf.ln(6)
+        pdf.set_font("Helvetica", "B", 10.5)
+        for i, ligne in enumerate(dest):
+            if i == 1:
+                pdf.set_font("Helvetica", "", 10)
+            pdf.set_x(pdf.w / 2 + 5)
+            pdf.multi_cell(0, 5, _t(ligne), new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(8)
+    paragraphes = [p.strip() for p in texte.replace("\r\n", "\n").split("\n\n") if p.strip()]
+    for i, para in enumerate(paragraphes):
+        if i == 0 and ", le " in para:  # "Ville, le 11 novembre 2026" aligné à droite
+            pdf.set_font("Helvetica", "", 10.5)
+            pdf.multi_cell(0, 5.5, _t(para), align="R", new_x="LMARGIN", new_y="NEXT")
+        elif para.lower().startswith("objet"):
+            pdf.set_font("Helvetica", "B", 10.5)
+            pdf.multi_cell(0, 5.5, _t(para), new_x="LMARGIN", new_y="NEXT")
+        else:
+            pdf.set_font("Helvetica", "", 10.5)
+            pdf.multi_cell(0, 5.5, _t(para), align="J", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
+    return bytes(pdf.output())
+
+
 def generer_cv_pdf(profil: dict, chemin: Path) -> Path:
     pdf = _CV(format="A4")
     pdf.set_margins(16, 14, 16)
