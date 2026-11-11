@@ -5,10 +5,7 @@
     <span class="badge vert">✔ Postulé le {{ o.date_candidature[:10] if o.date_candidature else "?" }}</span>
     {% if o.preuve %}<span class="discret">Preuve : {{ o.preuve }}</span>{% endif %}
   {% else %}
-    {% if o.url_postulation or o.url_offre %}
-      <a class="bouton postuler" data-id="{{ o.id }}" href="{{ o.url_postulation or o.url_offre }}"
-         target="_blank" rel="noopener">Postuler ↗</a>
-    {% endif %}
+    <a class="bouton" href="{{ url_for('kit_candidature', offre_id=o.id) }}">Postuler</a>
     <button type="button" class="secondaire postuler" data-id="{{ o.id }}">J'ai postulé</button>
     {% if o.statut != "a_postuler" %}
     <form method="post" action="{{ url_for('statut_offre', offre_id=o.id) }}">

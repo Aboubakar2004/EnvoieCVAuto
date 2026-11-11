@@ -6,6 +6,7 @@ from .config import PROFIL_FILE
 PROFIL_VIDE = {
     "prenom": "",
     "nom": "",
+    "genre": "",  # "f" ou "m" : sert aux accords dans la lettre (motivée / motivé)
     "email": "",
     "telephone": "",
     "adresse": "",
@@ -86,6 +87,7 @@ def profil_depuis_formulaire(form) -> dict:
     return {
         "prenom": form.get("prenom", "").strip(),
         "nom": form.get("nom", "").strip(),
+        "genre": form.get("genre", "") if form.get("genre") in ("f", "m") else "",
         "email": form.get("email", "").strip(),
         "telephone": form.get("telephone", "").strip(),
         "adresse": form.get("adresse", "").strip(),

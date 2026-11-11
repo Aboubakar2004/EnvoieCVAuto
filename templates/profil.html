@@ -24,6 +24,13 @@
   <div class="grille">
     <label>Prénom <input name="prenom" value="{{ p.prenom }}"></label>
     <label>Nom <input name="nom" value="{{ p.nom }}"></label>
+    <label>Accords dans la lettre
+      <select name="genre">
+        <option value="" {{ "selected" if not p.genre }}>Neutre (motivé·e)</option>
+        <option value="f" {{ "selected" if p.genre == "f" }}>Au féminin (motivée)</option>
+        <option value="m" {{ "selected" if p.genre == "m" }}>Au masculin (motivé)</option>
+      </select>
+    </label>
     <label>Email <input type="email" name="email" value="{{ p.email }}"></label>
     <label>Téléphone <input name="telephone" value="{{ p.telephone }}"></label>
     <label>Adresse <input name="adresse" value="{{ p.adresse }}" placeholder="3 rue ..., 93110 Rosny-sous-Bois"></label>
