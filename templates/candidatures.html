@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titre %}Mes candidatures - EnvoieCVAuto{% endblock %}
+{% block contenu %}
+<h1>Mes candidatures</h1>
+
+{% if candidatures %}
+<p class="discret">{{ candidatures | length }} candidature(s) enregistrée(s). Pense à vérifier dans ta boîte mail
+  que tu as bien reçu l'accusé de réception de chaque site.</p>
+<section class="carte">
+  <table>
+    <tr><th>Date</th><th>Poste</th><th>Entreprise</th><th>Preuve</th><th></th></tr>
+    {% for o in candidatures %}
+    {% set jours = (aujourd_hui - (o.date_candidature[:10] | date_iso)).days %}
+    <tr>
+      <td>{{ o.date_candidature[:10] }}<br><span class="discret">il y a {{ jours }} j</span></td>
+      <td><a href="{{ url_for('detail_offre', offre_id=o.id) }}">{{ o.intitule }}</a><br>
+        <span class="discret">{{ o.lieu or "" }}</span></td>
+      <td>{{ o.entreprise or "—" }}</td>
+      <td>{{ o.preuve or "—" }}</td>
+      <td>
+        {% if jours >= 7 %}<span class="badge" title="Pas de réponse ? Tu peux relancer l'employeur.">À relancer</span>{% endif %}
+        <a href="{{ o.url_offre }}" target="_blank" rel="noopener">Offre ↗</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% else %}
+<p class="discret">Aucune candidature pour l'instant. Sur une offre, clique sur « Postuler », puis sur « Oui, j'ai postulé »
+  une fois ta candidature terminée.</p>
+{% endif %}
+{% endblock %}

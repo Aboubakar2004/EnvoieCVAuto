@@ -24,6 +24,11 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 Mo max pour le CV
 JOURS_RECENTS = 30  # les offres plus anciennes ne sont plus proposées sur l'accueil
 
 
+@app.template_filter("date_iso")
+def date_iso(texte: str) -> date:
+    return date.fromisoformat(texte)
+
+
 def _date_limite() -> str:
     return (date.today() - timedelta(days=JOURS_RECENTS)).isoformat()
 
@@ -38,6 +43,7 @@ def accueil():
         compteurs=db.compter_par_statut(SEUIL_PERTINENT),
         derniere=db.get_meta("derniere_recherche_auto"),
         prochaine=auto.prochaine_recherche(),
+        recherche_en_cours=auto.en_cours(),
         mots_cles=mots_cles_depuis_profil(profil),
         cv_original=config.CV_ORIGINAL_FILE.exists(),
         gmail_ok=bool(config.GMAIL_ADDRESS and config.GMAIL_APP_PASSWORD),
@@ -47,9 +53,27 @@ def accueil():
 
 @app.route("/recherche-auto", methods=["POST"])
 def lancer_recherche_auto():
-    res = auto.recherche_automatique()
-    _afficher_resultat(res.get("trouvees", 0), res.get("nouvelles", 0), res.get("erreurs", []))
+    if auto.lancer_en_arriere_plan():
+        flash("Recherche lancée : les nouvelles offres apparaîtront dans moins d'une minute.", "ok")
+    else:
+        flash("Une recherche est déjà en train de tourner : la page se mettra à jour toute seule.", "ok")
     return redirect(url_for("accueil"))
+
+
+@app.route("/offres/<offre_id>/postule", methods=["POST"])
+def postule(offre_id):
+    o = db.get_offre(offre_id) or abort(404)
+    db.marquer_postule(offre_id, request.form.get("preuve", ""))
+    flash(f"Candidature enregistrée : « {o['intitule']} ». Tu la retrouves dans Mes candidatures.", "ok")
+    if request.form.get("retour") == "detail":
+        return redirect(url_for("detail_offre", offre_id=offre_id))
+    return redirect(request.referrer or url_for("accueil"))
+
+
+@app.route("/candidatures")
+def candidatures():
+    return render_template("candidatures.html", candidatures=db.lister_candidatures(),
+                           aujourd_hui=date.today())
 
 
 @app.route("/profil", methods=["GET", "POST"])

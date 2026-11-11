@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titre %}EnvoieCVAuto{% endblock %}</title>
+  {% block entete %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -13,6 +14,7 @@
       <a href="{{ url_for('accueil') }}">Accueil</a>
       <a href="{{ url_for('profil') }}">Mon CV</a>
       <a href="{{ url_for('offres') }}">Offres</a>
+      <a href="{{ url_for('candidatures') }}">Mes candidatures</a>
     </nav>
   </header>
   <main>
@@ -21,5 +23,14 @@
     {% endwith %}
     {% block contenu %}{% endblock %}
   </main>
+  <script>
+    // "Postuler" ouvre l'offre dans un nouvel onglet et affiche la confirmation "J'ai postulé"
+    document.addEventListener("click", function (e) {
+      var el = e.target.closest(".postuler");
+      if (!el) return;
+      var f = document.getElementById("confirm-" + el.dataset.id);
+      if (f) { f.hidden = false; f.querySelector("input[name=preuve]").focus({preventScroll: true}); }
+    });
+  </script>
 </body>
 </html>

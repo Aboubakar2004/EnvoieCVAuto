@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS offres (
     mot_cle         TEXT,               -- recherche qui a trouvé l'offre
     statut          TEXT NOT NULL DEFAULT 'nouvelle',
     date_ajout      TEXT NOT NULL,
-    score           INTEGER NOT NULL DEFAULT 0  -- correspondance avec le CV (0 à 100)
+    score           INTEGER NOT NULL DEFAULT 0, -- correspondance avec le CV (0 à 100)
+    date_candidature TEXT,              -- quand la candidature a été faite
+    preuve          TEXT                -- n° de candidature, email de confirmation reçu...
 );
 CREATE TABLE IF NOT EXISTS meta (
     cle    TEXT PRIMARY KEY,
@@ -50,14 +52,22 @@ CREATE TABLE IF NOT EXISTS recherches (
 """
 
 
+COLONNES_AJOUTEES = {
+    "score": "INTEGER NOT NULL DEFAULT 0",
+    "date_candidature": "TEXT",
+    "preuve": "TEXT",
+}
+
+
 def connexion() -> sqlite3.Connection:
     con = sqlite3.connect(config.DB_FILE)
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
-    # Mise à jour d'une base créée avant l'ajout du score
+    # Mise à jour d'une base créée par une version précédente de l'appli
     colonnes = {r["name"] for r in con.execute("PRAGMA table_info(offres)")}
-    if "score" not in colonnes:
-        con.execute("ALTER TABLE offres ADD COLUMN score INTEGER NOT NULL DEFAULT 0")
+    for nom, definition in COLONNES_AJOUTEES.items():
+        if nom not in colonnes:
+            con.execute(f"ALTER TABLE offres ADD COLUMN {nom} {definition}")
     return con
 
 
@@ -158,7 +168,26 @@ def changer_statut(offre_id: str, statut: str) -> None:
     if statut not in STATUTS:
         raise ValueError(statut)
     with connexion() as con:
-        con.execute("UPDATE offres SET statut = ? WHERE id = ?", (statut, offre_id))
+        if statut == "envoyee":
+            con.execute("""UPDATE offres SET statut = ?, date_candidature = COALESCE(date_candidature, ?)
+                           WHERE id = ?""", (statut, _maintenant(), offre_id))
+        else:
+            con.execute("UPDATE offres SET statut = ?, date_candidature = NULL WHERE id = ?",
+                        (statut, offre_id))
+
+
+def marquer_postule(offre_id: str, preuve: str = "") -> None:
+    """Enregistre la candidature (date + preuve facultative)."""
+    changer_statut(offre_id, "envoyee")
+    if preuve.strip():
+        with connexion() as con:
+            con.execute("UPDATE offres SET preuve = ? WHERE id = ?", (preuve.strip(), offre_id))
+
+
+def lister_candidatures() -> list[sqlite3.Row]:
+    with connexion() as con:
+        return con.execute("""SELECT * FROM offres WHERE statut = 'envoyee'
+                              ORDER BY date_candidature DESC""").fetchall()
 
 
 def supprimer_offre(offre_id: str) -> None:
