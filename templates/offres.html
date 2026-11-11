@@ -14,8 +14,9 @@
   {% if "Adzuna" in sources %}Offres fournies par <a href="https://www.adzuna.fr" target="_blank" rel="noopener">Adzuna</a>.{% endif %}</p>
 {% endif %}
 
-<details class="carte" {{ "open" if not offres and statut == "nouvelle" }}>
-  <summary><h2>Nouvelle recherche</h2></summary>
+<details class="carte">
+  <summary><h2>Recherche manuelle</h2></summary>
+  <p class="discret">Facultatif : les offres correspondant à ton CV sont déjà cherchées automatiquement.</p>
   <form method="post" action="{{ url_for('rechercher_offres') }}">
     <p class="discret">Coche les métiers qui t'intéressent (une recherche est lancée pour chacun).</p>
     <div class="grille">
@@ -80,15 +81,21 @@
 
 <nav class="onglets">
   {% for code, nom in statuts.items() %}
-  <a href="{{ url_for('offres', statut=code) }}" class="{{ 'actif' if statut == code }}">{{ nom }} ({{ compteurs.get(code, 0) }})</a>
+  <a href="{{ url_for('offres', statut=code, tout=tout|int or None) }}" class="{{ 'actif' if statut == code }}">{{ nom }} ({{ compteurs.get(code, 0) }})</a>
   {% endfor %}
-  <a href="{{ url_for('offres', statut='toutes') }}" class="{{ 'actif' if statut == 'toutes' }}">Toutes</a>
+  <a href="{{ url_for('offres', statut='toutes', tout=tout|int or None) }}" class="{{ 'actif' if statut == 'toutes' }}">Toutes</a>
 </nav>
-<p>
-  {% if avec_email %}
-    <a href="{{ url_for('offres', statut=statut) }}">Afficher toutes les offres</a>
+<p class="ligne">
+  {% if tout %}
+    <a href="{{ url_for('offres', statut=statut) }}">Seulement les offres qui correspondent à mon CV</a>
   {% else %}
-    <a href="{{ url_for('offres', statut=statut, email=1) }}">Seulement les offres avec un email de contact</a>
+    <a href="{{ url_for('offres', statut=statut, tout=1) }}">Afficher aussi les offres qui ne correspondent pas à mon CV</a>
+  {% endif %}
+  ·
+  {% if avec_email %}
+    <a href="{{ url_for('offres', statut=statut, tout=tout|int or None) }}">Avec ou sans email</a>
+  {% else %}
+    <a href="{{ url_for('offres', statut=statut, email=1, tout=tout|int or None) }}">Seulement avec un email de contact</a>
   {% endif %}
 </p>
 
@@ -96,6 +103,7 @@
 <article class="carte offre">
   <div class="offre-entete">
     <a href="{{ url_for('detail_offre', offre_id=o.id) }}"><strong>{{ o.intitule }}</strong></a>
+    <span class="badge {{ 'vert' if o.score >= 70 }}" title="Correspondance avec ton CV">{{ o.score }} %</span>
     {% if o.email_contact %}<span class="badge vert" title="{{ o.email_contact }}">✉ email</span>
     {% else %}<span class="badge">lien seulement</span>{% endif %}
   </div>

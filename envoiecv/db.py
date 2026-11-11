@@ -30,7 +30,12 @@ CREATE TABLE IF NOT EXISTS offres (
     competences     TEXT,               -- JSON : liste de compétences demandées
     mot_cle         TEXT,               -- recherche qui a trouvé l'offre
     statut          TEXT NOT NULL DEFAULT 'nouvelle',
-    date_ajout      TEXT NOT NULL
+    date_ajout      TEXT NOT NULL,
+    score           INTEGER NOT NULL DEFAULT 0  -- correspondance avec le CV (0 à 100)
+);
+CREATE TABLE IF NOT EXISTS meta (
+    cle    TEXT PRIMARY KEY,
+    valeur TEXT
 );
 CREATE TABLE IF NOT EXISTS recherches (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +54,23 @@ def connexion() -> sqlite3.Connection:
     con = sqlite3.connect(config.DB_FILE)
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    # Mise à jour d'une base créée avant l'ajout du score
+    colonnes = {r["name"] for r in con.execute("PRAGMA table_info(offres)")}
+    if "score" not in colonnes:
+        con.execute("ALTER TABLE offres ADD COLUMN score INTEGER NOT NULL DEFAULT 0")
     return con
+
+
+def get_meta(cle: str, defaut=None):
+    with connexion() as con:
+        row = con.execute("SELECT valeur FROM meta WHERE cle = ?", (cle,)).fetchone()
+    return json.loads(row["valeur"]) if row else defaut
+
+
+def set_meta(cle: str, valeur) -> None:
+    with connexion() as con:
+        con.execute("INSERT OR REPLACE INTO meta (cle, valeur) VALUES (?, ?)",
+                    (cle, json.dumps(valeur, ensure_ascii=False)))
 
 
 def _maintenant() -> str:
@@ -68,37 +89,58 @@ def enregistrer_offres(offres: list[dict]) -> int:
                 """INSERT OR IGNORE INTO offres
                    (id, source, intitule, entreprise, lieu, type_contrat, duree_travail, salaire,
                     date_creation, description, email_contact, url_postulation, url_offre,
-                    competences, mot_cle, statut, date_ajout)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'nouvelle',?)""",
+                    competences, mot_cle, statut, date_ajout, score)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'nouvelle',?,?)""",
                 (
                     o["id"], o["source"], o["intitule"], o.get("entreprise"), o.get("lieu"),
                     o.get("type_contrat"), o.get("duree_travail"), o.get("salaire"),
                     o.get("date_creation"), o.get("description"), o.get("email_contact"),
                     o.get("url_postulation"), o.get("url_offre"),
                     json.dumps(o.get("competences", []), ensure_ascii=False),
-                    o.get("mot_cle"), _maintenant(),
+                    o.get("mot_cle"), _maintenant(), o.get("score", 0),
                 ),
             )
             nouvelles += cur.rowcount
     return nouvelles
 
 
-def lister_offres(statut: str | None = None, avec_email: bool = False) -> list[sqlite3.Row]:
-    sql = "SELECT * FROM offres WHERE 1=1"
-    params: list = []
+def lister_offres(statut: str | None = None, avec_email: bool = False, score_min: int = 0,
+                  depuis: str | None = None, limite: int | None = None) -> list[sqlite3.Row]:
+    """Offres triées de la plus récente à la plus ancienne.
+
+    `depuis` : date ISO (AAAA-MM-JJ) minimale de publication.
+    """
+    sql = "SELECT * FROM offres WHERE score >= ?"
+    params: list = [score_min]
     if statut:
         sql += " AND statut = ?"
         params.append(statut)
     if avec_email:
         sql += " AND email_contact IS NOT NULL AND email_contact != ''"
-    sql += " ORDER BY date_creation DESC, date_ajout DESC"
+    if depuis:
+        sql += " AND date_creation >= ?"
+        params.append(depuis)
+    sql += " ORDER BY date_creation DESC, score DESC, date_ajout DESC"
+    if limite:
+        sql += f" LIMIT {int(limite)}"
     with connexion() as con:
         return con.execute(sql, params).fetchall()
 
 
-def compter_par_statut() -> dict:
+def toutes_les_offres_pour_score() -> list[dict]:
     with connexion() as con:
-        rows = con.execute("SELECT statut, COUNT(*) n FROM offres GROUP BY statut").fetchall()
+        return [dict(r) for r in con.execute("SELECT id, intitule, description FROM offres")]
+
+
+def maj_scores(scores: dict[str, int]) -> None:
+    with connexion() as con:
+        con.executemany("UPDATE offres SET score = ? WHERE id = ?", [(s, i) for i, s in scores.items()])
+
+
+def compter_par_statut(score_min: int = 0) -> dict:
+    with connexion() as con:
+        rows = con.execute("SELECT statut, COUNT(*) n FROM offres WHERE score >= ? GROUP BY statut",
+                           (score_min,)).fetchall()
     return {r["statut"]: r["n"] for r in rows}
 
 

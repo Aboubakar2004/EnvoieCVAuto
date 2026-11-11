@@ -70,7 +70,7 @@ def generer_cv_pdf(profil: dict, chemin: Path) -> Path:
         pdf.cell(0, 7, _t(profil["titre"]), new_x="LMARGIN", new_y="NEXT")
 
     contact = " | ".join(x for x in [
-        profil.get("telephone"), profil.get("email"), profil.get("ville"),
+        profil.get("telephone"), profil.get("email"), profil.get("adresse") or profil.get("ville"),
         f"Permis {profil['permis']}" if profil.get("permis") else "",
     ] if x)
     pdf.set_font("Helvetica", "", 9.5)

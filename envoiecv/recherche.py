@@ -5,6 +5,8 @@ import uuid
 from datetime import date
 
 from . import db
+from .pertinence import score_offre
+from .profil import charger_profil
 from .sources import SourceErreur, adzuna, france_travail, sources_actives
 from .sources.commun import chercher_commune, chercher_departement, extraire_email
 
@@ -72,8 +74,17 @@ def lancer_recherche(r: dict, publiee_depuis: int = 31) -> tuple[int, int, list[
                 erreurs.append(f"{source.NOM} : {e}")
                 break  # erreur de clé ou de quota : inutile d'insister sur cette source
             time.sleep(0.4)  # respecte les quotas d'appels des API
+    profil = charger_profil()
+    for o in offres.values():
+        o["score"] = score_offre(o, profil)
     nouvelles = db.enregistrer_offres(list(offres.values()))
     return len(offres), nouvelles, erreurs
+
+
+def recalculer_scores() -> None:
+    """À appeler quand le CV change : met à jour la correspondance de toutes les offres."""
+    profil = charger_profil()
+    db.maj_scores({o["id"]: score_offre(o, profil) for o in db.toutes_les_offres_pour_score()})
 
 
 def ajouter_offre_manuelle(form) -> str:
@@ -98,6 +109,7 @@ def ajouter_offre_manuelle(form) -> str:
         "url_postulation": url,
         "competences": [],
         "mot_cle": "ajout manuel",
+        "score": 100,  # ajoutée volontairement : toujours affichée
     }
     db.enregistrer_offres([offre])
     return offre["id"]

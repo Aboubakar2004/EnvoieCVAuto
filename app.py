@@ -2,6 +2,9 @@
 
 Lancer :  .venv\\Scripts\\python app.py   puis ouvrir http://127.0.0.1:5000
 """
+import os
+from datetime import date, timedelta
+
 from flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for
 from pypdf import PdfReader
 
@@ -9,11 +12,20 @@ from envoiecv import config, db
 from envoiecv.sources import CATEGORIES, TYPES_CONTRAT, SourceErreur, sources_actives
 from envoiecv.cv_pdf import generer_cv_pdf
 from envoiecv.profil import blocs_en_texte, charger_profil, profil_depuis_formulaire, sauver_profil
-from envoiecv.recherche import ajouter_offre_manuelle, lancer_recherche, preparer_recherche
+from envoiecv.recherche import (ajouter_offre_manuelle, lancer_recherche, preparer_recherche,
+                                recalculer_scores)
+from envoiecv import auto
+from envoiecv.pertinence import SEUIL_PERTINENT, mots_cles_depuis_profil
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 Mo max pour le CV
+
+JOURS_RECENTS = 30  # les offres plus anciennes ne sont plus proposées sur l'accueil
+
+
+def _date_limite() -> str:
+    return (date.today() - timedelta(days=JOURS_RECENTS)).isoformat()
 
 
 @app.route("/")
@@ -22,17 +34,29 @@ def accueil():
     return render_template(
         "index.html",
         profil=profil,
-        compteurs=db.compter_par_statut(),
+        offres=db.lister_offres("nouvelle", score_min=SEUIL_PERTINENT, depuis=_date_limite(), limite=30),
+        compteurs=db.compter_par_statut(SEUIL_PERTINENT),
+        derniere=db.get_meta("derniere_recherche_auto"),
+        prochaine=auto.prochaine_recherche(),
+        mots_cles=mots_cles_depuis_profil(profil),
         cv_original=config.CV_ORIGINAL_FILE.exists(),
         gmail_ok=bool(config.GMAIL_ADDRESS and config.GMAIL_APP_PASSWORD),
         sources=[s.NOM for s in sources_actives()],
     )
 
 
+@app.route("/recherche-auto", methods=["POST"])
+def lancer_recherche_auto():
+    res = auto.recherche_automatique()
+    _afficher_resultat(res.get("trouvees", 0), res.get("nouvelles", 0), res.get("erreurs", []))
+    return redirect(url_for("accueil"))
+
+
 @app.route("/profil", methods=["GET", "POST"])
 def profil():
     if request.method == "POST":
         sauver_profil(profil_depuis_formulaire(request.form))
+        recalculer_scores()
         flash("Profil enregistré.", "ok")
         return redirect(url_for("profil"))
 
@@ -43,6 +67,8 @@ def profil():
         experiences_txt=blocs_en_texte(p["experiences"]),
         formations_txt=blocs_en_texte(p["formations"]),
         cv_original=config.CV_ORIGINAL_FILE.exists(),
+        types_contrat=TYPES_CONTRAT,
+        mots_cles=mots_cles_depuis_profil(p),
     )
 
 
@@ -107,13 +133,16 @@ def offres():
     if statut not in db.STATUTS and statut != "toutes":
         statut = "nouvelle"
     avec_email = request.args.get("email") == "1"
+    tout = request.args.get("tout") == "1"  # inclure les offres qui ne correspondent pas au CV
+    score_min = 0 if tout else SEUIL_PERTINENT
     return render_template(
         "offres.html",
-        offres=db.lister_offres(None if statut == "toutes" else statut, avec_email),
+        offres=db.lister_offres(None if statut == "toutes" else statut, avec_email, score_min),
         statut=statut,
         avec_email=avec_email,
+        tout=tout,
         statuts=db.STATUTS,
-        compteurs=db.compter_par_statut(),
+        compteurs=db.compter_par_statut(score_min),
         recherches=db.lister_recherches(),
         categories=CATEGORIES,
         types_contrat=TYPES_CONTRAT,
@@ -187,4 +216,7 @@ def supprimer_offre(offre_id):
 
 
 if __name__ == "__main__":
+    # En mode debug, Flask lance 2 processus : on ne démarre la recherche auto que dans le bon.
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        auto.demarrer_planificateur()
     app.run(debug=True)

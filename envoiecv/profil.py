@@ -8,6 +8,7 @@ PROFIL_VIDE = {
     "nom": "",
     "email": "",
     "telephone": "",
+    "adresse": "",
     "ville": "",
     "permis": "",
     "titre": "",
@@ -18,6 +19,10 @@ PROFIL_VIDE = {
     "langues": [],
     "qualites": [],
     "disponibilite": "",
+    # Recherche automatique
+    "postes_recherches": [],
+    "rayon_km": 20,
+    "contrats_souhaites": [],  # vide = tous (codes : CDI, CDD, MIS, SAI, PARTIEL)
     # "original" = envoyer le PDF uploadé tel quel, "genere" = CV généré par l'appli
     "cv_a_envoyer": "original",
 }
@@ -83,6 +88,7 @@ def profil_depuis_formulaire(form) -> dict:
         "nom": form.get("nom", "").strip(),
         "email": form.get("email", "").strip(),
         "telephone": form.get("telephone", "").strip(),
+        "adresse": form.get("adresse", "").strip(),
         "ville": form.get("ville", "").strip(),
         "permis": form.get("permis", "").strip(),
         "titre": form.get("titre", "").strip(),
@@ -93,5 +99,8 @@ def profil_depuis_formulaire(form) -> dict:
         "langues": lignes(form.get("langues", "")),
         "qualites": lignes(form.get("qualites", "")),
         "disponibilite": form.get("disponibilite", "").strip(),
+        "postes_recherches": lignes(form.get("postes_recherches", "")),
+        "rayon_km": int(form.get("rayon_km") or 20) if str(form.get("rayon_km", "20")).isdigit() else 20,
+        "contrats_souhaites": form.getlist("contrats_souhaites"),
         "cv_a_envoyer": form.get("cv_a_envoyer", "original"),
     }

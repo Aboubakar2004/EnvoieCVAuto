@@ -9,6 +9,9 @@ adapter le CV à chaque offre et envoyer les candidatures par email.
 - [x] **Mon CV** : import du CV PDF + saisie du profil + génération d'un CV PDF propre
 - [x] **Recherche d'offres** : API Adzuna (métiers prédéfinis, ville + rayon ou département,
       type de contrat, temps partiel), recherches enregistrées, tri par statut, ajout manuel d'offres
+- [x] **Recherche automatique** : au démarrage puis toutes les 3 h, à partir des « postes
+      recherchés », de la ville et du rayon du CV. Chaque offre reçoit un score de correspondance
+      avec le CV ; l'accueil affiche les offres pertinentes, les plus récentes d'abord.
 - [ ] Adaptation du CV à l'offre
 - [ ] Envoi automatique des candidatures via Gmail
 
